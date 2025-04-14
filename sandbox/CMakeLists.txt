@@ -1,0 +1,5 @@
+file(GLOB_RECURSE SRC ./*.cpp ./*.hpp)
+add_executable(sandbox)
+target_sources(sandbox PRIVATE ${SRC})
+target_link_libraries(sandbox PRIVATE ToyPhysics NickelEngine NickelEngine-Main)
+target_compile_features(sandbox PRIVATE cxx_std_17)

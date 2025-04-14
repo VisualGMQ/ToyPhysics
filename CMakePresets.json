@@ -1,0 +1,12 @@
+{
+    "version": 4,
+    "configurePresets": [
+        {
+            "name": "default",
+            "binaryDir": "${sourceDir}/cmake-build",
+            "cacheVariables": {
+                "TOY_ENGINE_BUILD_SANDBOX": "ON"
+            }
+        }
+    ]
+}

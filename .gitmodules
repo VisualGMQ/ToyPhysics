@@ -1,0 +1,3 @@
+[submodule "NickelEngine"]
+	path = NickelEngine
+	url = https://github.com/VisualGMQ/NickelEngine.git
