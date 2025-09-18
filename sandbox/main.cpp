@@ -9,7 +9,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     Context::Init();
     Context::GetInst().InitSystem();
     Context::GetInst().Initialize();
-    LOGI("editor start");
 
     return SDL_APP_CONTINUE;
 }
