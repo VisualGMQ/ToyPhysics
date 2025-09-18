@@ -1,0 +1,11 @@
+file(GLOB_RECURSE HEADER toy_physics/*.hpp)
+file(GLOB_RECURSE SRC src/*.cpp)
+
+add_library(toy_physics STATIC)
+target_sources(toy_physics PRIVATE ${HEADER} ${SRC})
+target_include_directories(toy_physics PUBLIC .)
+target_link_libraries(toy_physics PRIVATE Eigen3::Eigen spdlog::spdlog)
+target_compile_features(toy_physics PRIVATE cxx_std_20)
+if (MSVC)
+    target_compile_options(toy_physics PRIVATE /utf-8)
+endif()
