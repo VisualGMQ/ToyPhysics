@@ -1,7 +1,13 @@
 {
   "dependencies": [
     "eigen3",
-    "sdl3",
-    "spdlog"
+    {
+      "name": "sdl3",
+      "features": [
+        "vulkan"
+      ]
+    },
+    "spdlog",
+    "tinyobjloader"
   ]
 }

@@ -5,6 +5,7 @@ project(ToyPhysics)
 find_package(SDL3 CONFIG REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
+find_package(tinyobjloader CONFIG REQUIRED)
 
 add_subdirectory(physics)
 add_subdirectory(sandbox)
