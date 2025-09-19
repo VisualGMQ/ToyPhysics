@@ -1,4 +1,4 @@
-#include "toy_physics/Geometry.hpp"
+#include "toy_physics/geometry.hpp"
 
 namespace toy_physics {
 BoxGeometry* Geometry::AsBox() {
