@@ -1,0 +1,12 @@
+[submodule "SDL"]
+	path = 3rdlibs/SDL
+	url = https://github.com/libsdl-org/SDL.git
+[submodule "eigen"]
+	path = 3rdlibs/eigen
+	url = https://gitlab.com/libeigen/eigen.git
+[submodule "spdlog"]
+	path = 3rdlibs/spdlog
+	url = https://github.com/gabime/spdlog.git
+[submodule "tinyobjloader"]
+	path = 3rdlibs/tinyobjloader
+	url = https://github.com/tinyobjloader/tinyobjloader.git
