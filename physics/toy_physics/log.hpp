@@ -2,6 +2,7 @@
 
 #include "spdlog/spdlog.h"
 #include <memory>
+#include <cassert>
 
 class LogManager {
 public:

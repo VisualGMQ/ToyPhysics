@@ -1,43 +1,7 @@
 #pragma once
-#include "Eigen/Dense"
-#include "vertex.hpp"
+#include "raylib.h"
 #include <memory>
-
-#include "SDL3/SDL.h"
-#include "camera.hpp"
-
-struct MVP {
-    Eigen::Matrix4f proj = Eigen::Matrix4f::Identity();
-    Eigen::Matrix4f view = Eigen::Matrix4f::Identity();
-    Eigen::Matrix4f model = Eigen::Matrix4f::Identity();
-};
-
-struct CPUMesh {
-    std::vector<Vertex> m_vertices;
-
-    void Load(const std::string& filename);
-
-    operator bool() const { return !m_vertices.empty(); }
-};
-
-struct GPUMesh {
-    SDL_GPUBuffer* m_buffer{};
-    size_t m_vertex_count{};
-};
-
-struct Transform {
-    Eigen::Vector3f m_position = Eigen::Vector3f::Zero();
-    Eigen::Quaternionf m_rotation = Eigen::Quaternionf::Identity();
-    Eigen::Vector3f m_scale = Eigen::Vector3f::Ones();
-
-    Eigen::Matrix4f ToMatrix() const;
-};
-
-struct Model {
-    const GPUMesh* m_mesh{};
-
-    Transform m_transform;
-};
+#include <array>
 
 class Context {
 public:
@@ -47,71 +11,63 @@ public:
 
     virtual ~Context();
 
-    void InitSystem();
-    void ShutdownSystem();
     void Initialize();
     void Shutdown();
 
     void Update();
-    void HandleEvents(const SDL_Event&);
 
     bool ShouldExit() const;
     void Exit();
 
-    std::unique_ptr<Camera> m_camera;
-
 private:
-    bool m_should_exit = true;
-
     static std::unique_ptr<Context> instance;
-
-    SDL_GPUShader* loadSDLGPUShader(const char* filename,
-                                    SDL_GPUShaderStage stage,
-                                    uint32_t sampler_num,
-                                    uint32_t uniform_buffer_num);
-    SDL_GPUGraphicsPipeline* createGraphicsPipeline();
-    SDL_GPUTexture* createDepthTexture(int w, int h);
-    SDL_GPUTexture* createImageTexture(uint32_t* color, int w, int h);
-    SDL_GPUSampler* createSampler();
-    GPUMesh loadModel(const std::string& filename);
-    SDL_GPUBuffer* createAndUploadVertexData(const CPUMesh&);
-
-    void initImGui();
-    void shutdownImGui();
-    void imguiBeginFrame();
-    void imguiEndFrame(SDL_GPUCommandBuffer* cmdbuf,
-                       SDL_GPUTexture* swapchain_texture);
-    void imguiRenderUpdate();
 
     void renderUpdate();
     void logicUpdate(float delta_time);
-    void drawCube(const Transform& transform);
-    void drawSphere(const Transform& transform);
-    void drawSemiSphere(const Transform& transform);
-    void drawCylinder(const Transform& transform);
-    void drawCapsule(const Transform& transform);
-    void drawModel(const GPUMesh&, const Transform& transform);
-    void handleFlyCamera(float delta_time);
+    void initCamera();
+    void handleCameraModeSwitch();
+    int getCameraMode() const;
+    void showHelpMsg() const;
 
-    SDL_Window* m_window{};
-    SDL_GPUDevice* m_gpu_device{};
-    SDL_GPUTexture* m_gpu_depth_texture{};
-    SDL_GPUTexture* m_gpu_white_texture{};
-    SDL_GPUTexture* m_gpu_colorful_texture{};
-    SDL_GPUSampler* m_gpu_sampler{};
-    SDL_GPUShader* m_vertex_shader{};
-    SDL_GPUShader* m_fragment_shader{};
-    SDL_GPUGraphicsPipeline* m_graphics_pipeline{};
-    bool m_is_mouse_relative_mode = true;
+    bool m_should_exit = true;
+    Camera3D m_camera = {0};
     float m_camera_move_speed = 0.001;
+    size_t m_camera_mode_index = 0;
+    bool m_use_camera = true;
 
-    // meshes
-    GPUMesh m_cube_mesh;
-    GPUMesh m_sphere_mesh;
-    GPUMesh m_semi_sphere_mesh;
-    GPUMesh m_cylinder_mesh;
+    mutable Model m_model_box = {0};
+    mutable Model m_model_sphere = {0};
+    mutable Model m_model_cylinder = {0};
+    mutable Model m_model_semi_sphere = {0};
+    Texture2D m_color_texture = {0};
+    Shader m_lighting_shader = {0};
+    int m_loc_light_dir = -1;
+    int m_loc_view_pos = -1;
+    int m_loc_light_color = -1;
+    int m_loc_ambient_color = -1;
+    int m_loc_specular_strength = -1;
+    int m_loc_shininess = -1;
 
-    std::vector<Model> m_models;
+    void handleToggleCamera();
+    bool isCameraEnable() const;
+    void initTexture();
+    void initLightingShader();
+    void loadModels();
+
+    void drawBox(Vector3 center, Vector3 rotation, Vector3 halfExtent, Color color) const;
+    void drawSphere(Vector3 center, Vector3 rotation, float radius, Color color) const;
+    void drawCapsule(Vector3 center, Vector3 rotation, float height, float radius, Color color) const;
+    void drawCylinder(Vector3 center, Vector3 rotation, float height, float radius, Color color) const;
+
+    static constexpr std::array<int, 2> m_camera_modes = {
+        CAMERA_FREE,
+        CAMERA_ORBITAL,
+    };
+
+    static constexpr std::array<const char*, 2> m_camera_mode_names = {
+        "Free",
+        "Orbital",
+    };
 };
 
 #define SCONTEXT ::Context::GetInst()
