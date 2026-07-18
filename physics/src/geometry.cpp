@@ -1,5 +1,6 @@
 #include "toy_physics/geometry.hpp"
 
+#include "toy_physics/algorithm.hpp"
 #include "toy_physics/check.hpp"
 #include "toy_physics/log.hpp"
 
@@ -47,7 +48,7 @@ BoundingBox::BoundingBox(const Eigen::Vector3f& min, const Eigen::Vector3f& max)
 
 BoundingBox BoundingBox::FromCenter(const Eigen::Vector3f& center,
                                     const Eigen::Vector3f& half_size) {
-    TOY_CHECK_R(half_size.x() > 0 && half_size.y() > 0 && half_size.z() > 0);
+    TOY_CHECK(half_size.x() > 0 && half_size.y() > 0 && half_size.z() > 0);
     BoundingBox result;
     result.m_min = center - half_size;
     result.m_max = center + half_size;
@@ -65,16 +66,12 @@ bool BoundingBox::IsValid() const {
 }
 
 bool BoundingBox::IsIntersect(const BoundingBox& o) const {
-    TOY_ENSURE_RV(IsValid(), false);
-
-    return !(m_min.x() >= o.m_max.x() || m_min.y() >= o.m_max.y() ||
-             m_min.z() >= o.m_max.z() || m_max.x() <= o.m_min.x() ||
-             m_max.y() <= o.m_min.y() || m_max.z() <= o.m_min.z());
+    return IsAABBIntersect(m_min, m_max, o.m_min, o.m_max);
 }
 
 BoundingBox BoundingBox::Intersect(const BoundingBox& o) const {
-    TOY_CHECK_R(IsValid());
-    TOY_CHECK_R(o.IsValid());
+    TOY_CHECK(IsValid());
+    TOY_CHECK(o.IsValid());
 
     TOY_ENSURE_R(IsIntersect(o));
 

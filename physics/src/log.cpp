@@ -6,6 +6,8 @@
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include <iostream>
 
+namespace toy_physics {
+
 LogManager LogManager::manager;
 
 LogManager& LogManager::GetInst() {
@@ -14,4 +16,6 @@ LogManager& LogManager::GetInst() {
 
 LogManager::LogManager() {
     m_console_logger = spdlog::stdout_color_mt("console");
+}
+
 }

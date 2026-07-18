@@ -1,7 +1,12 @@
 #pragma once
+#include "example.hpp"
+#include "raygui.h"
 #include "raylib.h"
-#include <memory>
 #include <array>
+#include <memory>
+
+#include <string>
+#include <unordered_map>
 
 class Context {
 public:
@@ -19,6 +24,24 @@ public:
     bool ShouldExit() const;
     void Exit();
 
+    template <typename T, typename... Args>
+    void RegisterExample(Args&&... args) {
+        auto example = std::make_unique<T>(std::forward<Args>(args)...);
+        if (!m_cur_example) {
+            m_cur_example = example.get();
+        }
+        m_examples.emplace_back(std::move(example));
+    }
+
+    void DrawBox(Vector3 center, Vector3 rotation, Vector3 halfExtent,
+                 Color color = WHITE) const;
+    void DrawSphere(Vector3 center, Vector3 rotation, float radius,
+                    Color color = WHITE) const;
+    void DrawCapsule(Vector3 center, Vector3 rotation, float height,
+                     float radius, Color color = WHITE) const;
+    void DrawCylinder(Vector3 center, Vector3 rotation, float height,
+                      float radius, Color color = WHITE) const;
+
 private:
     static std::unique_ptr<Context> instance;
 
@@ -28,6 +51,7 @@ private:
     void handleCameraModeSwitch();
     int getCameraMode() const;
     void showHelpMsg() const;
+    void renderExampleMenu();
 
     bool m_should_exit = true;
     Camera3D m_camera = {0};
@@ -48,16 +72,14 @@ private:
     int m_loc_specular_strength = -1;
     int m_loc_shininess = -1;
 
+    std::vector<std::unique_ptr<IExample>> m_examples;
+    IExample* m_cur_example = nullptr;
+
     void handleToggleCamera();
     bool isCameraEnable() const;
     void initTexture();
     void initLightingShader();
     void loadModels();
-
-    void drawBox(Vector3 center, Vector3 rotation, Vector3 halfExtent, Color color) const;
-    void drawSphere(Vector3 center, Vector3 rotation, float radius, Color color) const;
-    void drawCapsule(Vector3 center, Vector3 rotation, float height, float radius, Color color) const;
-    void drawCylinder(Vector3 center, Vector3 rotation, float height, float radius, Color color) const;
 
     static constexpr std::array<int, 2> m_camera_modes = {
         CAMERA_FREE,

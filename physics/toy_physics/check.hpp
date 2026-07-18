@@ -6,28 +6,33 @@
 
 #define ASSERT(expr, msg) assert(((void)msg, (expr)))
 
-#define TOY_ENSURE(expr)              \
-    if (!(expr)) {                    \
-        LOGW("Check Failed: " #expr); \
-        return;                       \
+#define TOY_ENSURE(expr)               \
+    if (!(expr)) {                     \
+        LOGW("Ensure Failed: " #expr); \
+        return;                        \
     }
-#define TOY_ENSURE_R(expr)            \
-    if (!(expr)) {                    \
-        LOGW("Check Failed: " #expr); \
-        return {};                    \
+#define TOY_ENSURE_R(expr)             \
+    if (!(expr)) {                     \
+        LOGW("Ensure Failed: " #expr); \
+        return {};                     \
     }
 #define TOY_ENSURE_RV(expr, return_value) \
     if (!(expr)) {                        \
-        LOGW("Check Failed: " #expr);     \
+        LOGW("Ensure Failed: " #expr);    \
         return (return_value);            \
     }
 
+#define TOY_ENSURE_R_FALSE(expr)       \
+    if (!(expr)) {                     \
+        LOGW("Ensure Failed: " #expr); \
+        return false;                  \
+    }
+
 #ifdef TOY_PHYSICS_CHECK
-#define TOY_CHECK(expr) TOY_ENSURE(expr)
-#define TOY_CHECK_R(expr) TOY_ENSURE_R(expr)
-#define TOY_CHECK_RV(expr, return_value) TOY_ENSURE_RV(expr)
+#define TOY_CHECK(expr)                \
+    if (!(expr)) {                     \
+        LOGE("Check Failed: " #expr); \
+    }
 #else
 #define TOY_CHECK(expr)
-#define TOY_CHECK_R(expr)
-#define TOY_CHECK_RV(expr)
 #endif

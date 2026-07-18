@@ -4,6 +4,3 @@
 [submodule "spdlog"]
 	path = 3rdlibs/spdlog
 	url = https://github.com/gabime/spdlog.git
-[submodule "raylib"]
-	path = 3rdlibs/raylib
-	url = https://github.com/raysan5/raylib.git

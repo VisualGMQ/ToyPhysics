@@ -1,6 +1,17 @@
 #pragma once
 #include "Eigen/Dense"
+#include "toy_physics/config.hpp"
+#include <array>
 #include <type_traits>
+
+namespace toy_physics {
+
+using Vector3 = Eigen::Vector3<real>;
+
+template <size_t N>
+using Vector = Eigen::Vector<real, N>;
+
+using Quaternion = Eigen::Quaternion<real>;
 
 template <typename T>
 requires(std::is_floating_point_v<T>)
@@ -10,120 +21,120 @@ template <typename T>
 requires(std::is_floating_point_v<T>)
 class TRadians {
 public:
-    TRadians() : value_{} {}
+    TRadians() : m_value{} {}
 
     template <typename U>
     requires(std::convertible_to<T, U>)
-    constexpr TRadians(U value) : value_{static_cast<T>(value)} {}
+    constexpr TRadians(U value) : m_value{static_cast<T>(value)} {}
 
     template <typename U>
     requires(std::convertible_to<U, T>)
     constexpr TRadians(TDegrees<U> o)
-        : value_{static_cast<T>(static_cast<T>(o) * EIGEN_PI /
-                                static_cast<T>(180.0))} {}
+        : m_value{static_cast<T>(static_cast<T>(o) * EIGEN_PI /
+                                 static_cast<T>(180.0))} {}
 
     constexpr TRadians& operator+=(const TRadians& o) {
-        value_ += o.value_;
+        m_value += o.m_value;
         return *this;
     }
 
     constexpr TRadians& operator-=(const TRadians& o) {
-        value_ -= o.value_;
+        m_value -= o.m_value;
         return *this;
     }
 
     template <typename U>
     constexpr TRadians& operator*=(U value) {
-        value_ *= value;
+        m_value *= value;
         return *this;
     }
 
     template <typename U>
     constexpr TRadians& operator/=(U value) {
-        value_ /= value;
+        m_value /= value;
         return *this;
     }
 
     template <typename U>
     constexpr TRadians& operator*=(TRadians<U> value) {
-        value_ *= value.value_;
+        m_value *= value.value_;
         return *this;
     }
 
     template <typename U>
     constexpr TRadians& operator/=(TRadians<U> value) {
-        value_ /= value.value_;
+        m_value /= value.value_;
         return *this;
     }
 
     constexpr TRadians(const TRadians&) = default;
 
-    constexpr explicit operator T() const noexcept { return value_; }
+    constexpr explicit operator T() const noexcept { return m_value; }
 
-    constexpr T Value() const noexcept { return value_; }
+    constexpr T Value() const noexcept { return m_value; }
 
 private:
-    T value_;
+    T m_value;
 };
 
 template <typename T>
 requires(std::is_floating_point_v<T>)
 class TDegrees {
 public:
-    constexpr TDegrees() : value_{} {}
+    constexpr TDegrees() : m_value{} {}
 
     template <typename U>
     requires(std::convertible_to<T, U>)
-    constexpr TDegrees(U value) : value_{static_cast<T>(value)} {}
+    constexpr TDegrees(U value) : m_value{static_cast<T>(value)} {}
 
     template <typename U>
     requires(std::convertible_to<U, T>)
     constexpr TDegrees(TRadians<U> o)
-        : value_{static_cast<T>(static_cast<T>(o) * static_cast<T>(180.0) /
-                                EIGEN_PI)} {}
+        : m_value{static_cast<T>(static_cast<T>(o) * static_cast<T>(180.0) /
+                                 EIGEN_PI)} {}
 
     constexpr TDegrees& operator+=(const TDegrees& o) {
-        value_ += o.value_;
+        m_value += o.m_value;
         return *this;
     }
 
     constexpr TDegrees& operator-=(const TDegrees& o) {
-        value_ -= o.value_;
+        m_value -= o.m_value;
         return *this;
     }
 
     template <typename U>
     constexpr TDegrees& operator*=(U value) {
-        value_ *= value;
+        m_value *= value;
         return *this;
     }
 
     template <typename U>
     constexpr TDegrees& operator/=(U value) {
-        value_ /= value;
+        m_value /= value;
         return *this;
     }
 
     template <typename U>
     constexpr TDegrees& operator*=(TDegrees<U> value) {
-        value_ *= value.value_;
+        m_value *= value.value_;
         return *this;
     }
 
     template <typename U>
     constexpr TDegrees& operator/=(TDegrees<U> value) {
-        value_ /= value.value_;
+        m_value /= value.value_;
         return *this;
     }
 
     constexpr TDegrees(const TDegrees&) = default;
 
-    constexpr explicit operator T() const noexcept { return value_; }
+    constexpr explicit operator T() const noexcept { return m_value; }
 
-    constexpr T Value() const noexcept { return value_; }
+    constexpr T Value() const noexcept { return m_value; }
 
 private:
-    T value_;
+    T m_value;
 };
 
 // mathematics
@@ -312,126 +323,107 @@ bool operator<=(TDegrees<U> deg, TRadians<T> rad) {
     return rad >= deg;
 }
 
-using Radians = TRadians<float>;
-using Degrees = TDegrees<float>;
+using Radians = TRadians<real>;
+using Degrees = TDegrees<real>;
+
+enum class BarycentricPolicy {
+    None,
+    StopWhenNegative,  // stop when any coordinate < 0
+};
 
 template <typename T>
-auto CreatePersp(TRadians<T> fov, T aspect, T n, T f) {
-    T focal = 1.0 / std::tan(fov.Value() * 0.5);
+struct TBarycentricCoord {
+    T m_alpha{};
+    T m_beta{};
+    T m_gamma{};
 
-    // clang-format off
-    return Eigen::Matrix4<T>{
-        {focal / aspect,       0,                   0,                       0},
-        {             0,   focal,                   0,                       0},
-        {             0,       0,   (f + n) / (n - f), (2.f * n * f) / (n - f)},
-        {             0,       0,                  -1,                       0}
-    };
-    // clang-format on
-}
+    bool IsValid() const {
+        return m_alpha >= 0 && m_beta >= 0 && m_gamma >= 0 &&
+               std::abs((m_alpha + m_beta + m_gamma) - 1) <= 1e-6;
+    }
 
-template <typename T>
-auto CreateOrtho(T left, T right, T top, T bottom, T n, T f) {
-    // clang-format off
-    return Eigen::Matrix4<T>{
-        {2.0f / (right - left),                  0.0f,               0.0f, (left + right) / (left - right)},
-        {                 0.0f,-2.0f / (top - bottom),               0.0f, (bottom + top) / (bottom - top)},
-        {                 0.0f,                  0.0f,     1.0f / (n - f),                      f/ (f - n)},
-        {                 0.0f,                  0.0f,               0.0f,                            1.0f}
-    };
-    // clang-format on
-}
+    TBarycentricCoord() = default;
 
-template <typename T>
-auto CreateTranslation(const Eigen::Vector3<T>& position) {
-    // clang-format off
-    return Eigen::Matrix4<T>{
-        {1.0f, 0.0f, 0.0f, position.x()},
-        {0.0f, 1.0f, 0.0f, position.y()},
-        {0.0f, 0.0f, 1.0f, position.z()},
-        {0.0f, 0.0f, 0.0f, 1.0f        }
-    };
-    // clang-format on
-}
+    TBarycentricCoord(Vector3 p1, Vector3 p2, Vector3 p3, Vector3 q,
+                      BarycentricPolicy policy = BarycentricPolicy::None) {
+        Vector3 d12 = p2 - p1;
+        Vector3 d23 = p3 - p2;
+        Vector3 norm = d12.cross(d23);
+        real s = norm.dot(norm);
 
-template <typename T>
-auto CreateRotation(const Eigen::Quaternion<T>& rotation) {
-    Eigen::Matrix4f mat = Eigen::Matrix4f::Identity();
-    mat.block<3, 3>(0, 0) = rotation.toRotationMatrix();
-    return mat;
-}
+        if (std::abs(s) <= std::numeric_limits<real>::epsilon()) {
+            real d12_len = d12.norm();
+            if (std::abs(d12_len) <= std::numeric_limits<real>::epsilon()) {
+                return;
+            }
+            m_alpha = (q - p1).norm() / d12.norm();
+            return;
+        }
 
-template <typename T>
-auto LookAt(const Eigen::Vector3<T>& target, const Eigen::Vector3<T>& srcPos,
-            const Eigen::Vector3<T>& up) {
-    auto zAxis = (srcPos - target).normalized();
-    auto xAxis = up.cross(zAxis).normalized();
-    auto yAxis = zAxis.cross(xAxis);
+        Vector3 d2q = q - p2;
+        Vector3 d3q = q - p3;
 
-    // clang-format off
-    return Eigen::Matrix4<T>{
-        {xAxis.x(), xAxis.y(), xAxis.z(), srcPos.dot(-xAxis)},
-        {yAxis.x(), yAxis.y(), yAxis.z(), srcPos.dot(-yAxis)},
-        {zAxis.x(), zAxis.y(), zAxis.z(), srcPos.dot(-zAxis)},
-        {        0,      0,       0,                       1}
-    };
-    // clang-format on
-}
+        m_alpha = (d2q.cross(d3q)).dot(norm) / s;
+        if (m_alpha < 0 && policy == BarycentricPolicy::StopWhenNegative) {
+            return;
+        }
+
+        Vector3 d1q = q - p1;
+        m_beta = (d3q.cross(d1q)).dot(norm) / s;
+        if (m_beta < 0 && policy == BarycentricPolicy::StopWhenNegative) {
+            return;
+        }
+
+        m_gamma = 1.0 - m_alpha - m_beta;
+    }
+};
+
+using BarycentricCoord = TBarycentricCoord<real>;
 
 template <typename T>
-auto CreateXRotation(TRadians<T> radians) {
-    float cos = std::cos(radians.Value());
-    float sin = std::sin(radians.Value());
-    // clang-format off
-    return Eigen::Matrix4<T>{
-        {1.0f, 0.0f, 0.0f, 0.0f},
-        {0.0f,  cos, -sin, 0.0f},
-        {0.0f,  sin,  cos, 0.0f},
-        {0.0f, 0.0f, 0.0f, 1.0f}
-    };
-    // clang-format on
-}
+struct TTetrahedronBarycentric {
+    T m_alpha{};
+    T m_beta{};
+    T m_gamma{};
+    T m_delta{};
 
-template <typename T>
-auto CreateYRotation(TRadians<T> radians) {
-    float cos = std::cos(radians.Value());
-    float sin = std::sin(radians.Value());
-    // clang-format off
-    return Eigen::Matrix4<T>{
-        { cos, 0.0f,  sin, 0.0f},
-        {0.0f, 1.0f,  0.0, 0.0f},
-        {-sin, 0.0f,  cos, 0.0f},
-        {0.0f, 0.0f, 0.0f, 1.0f}
-    };
-    // clang-format on
-}
+    bool IsValid() const {
+        return m_alpha >= 0 && m_beta >= 0 && m_gamma >= 0 &&
+               m_delta >= 0 &&
+               std::abs((m_alpha + m_beta + m_gamma + m_delta) - 1) <= 1e-6;
+    }
 
-template <typename T>
-auto CreateZRotation(TRadians<T> radians) {
-    float cos = std::cos(radians.Value());
-    float sin = std::sin(radians.Value());
-    // clang-format off
-    return Eigen::Matrix4<T>{
-        { cos, -sin, 0.0f, 0.0f},
-        { sin,  cos, 0.0f, 0.0f},
-        {0.0f, 0.0f, 1.0f, 0.0f},
-        {0.0f, 0.0f, 0.0f, 1.0f}
-    };
-    // clang-format on
-}
+    TTetrahedronBarycentric() = default;
 
-template <typename T>
-auto CreateXYZRotation(const Eigen::Vector3<TRadians<T>>& r) {
-    return CreateXRotation(r.x) * CreateYRotation(r.y) * CreateZRotation(r.z);
-}
+    TTetrahedronBarycentric(Vector3 a, Vector3 b, Vector3 c, Vector3 d,
+                            Vector3 p,
+                            BarycentricPolicy policy = BarycentricPolicy::None) {
+        Vector3 ab = b - a;
+        Vector3 ac = c - a;
+        Vector3 ad = d - a;
 
-template <typename T>
-Eigen::Matrix4f CreateScale(const Eigen::Vector3<T>& scale) {
-    // clang-format off
-    return Eigen::Matrix4<T>{
-        {scale.x(),       0.0,      0.0f, 0.0f},
-        {     0.0f, scale.y(),      0.0f, 0.0f},
-        {     0.0f,      0.0f, scale.z(), 0.0f},
-        {     0.0f,      0.0f,      0.0f, 1.0f}
-    };
-    // clang-format on
+        Vector3 cad = ac.cross(ad);
+        real denom = ab.dot(cad);
+        if (std::abs(denom) <= std::numeric_limits<real>::epsilon()) {
+            return;
+        }
+
+        real inv_denom = real{1} / denom;
+        Vector3 v = p - a;
+
+        m_alpha = (b - p).dot((c - p).cross(d - p)) * inv_denom;
+        if (m_alpha < 0 && policy == BarycentricPolicy::StopWhenNegative) return;
+
+        m_beta = v.dot(cad) * inv_denom;
+        if (m_beta < 0 && policy == BarycentricPolicy::StopWhenNegative) return;
+
+        m_gamma = ab.dot(v.cross(ad)) * inv_denom;
+        if (m_gamma < 0 && policy == BarycentricPolicy::StopWhenNegative) return;
+
+        m_delta = T{1} - m_alpha - m_beta - m_gamma;
+    }
+};
+
+using TetrahedronBarycentric = TTetrahedronBarycentric<real>;
+
 }

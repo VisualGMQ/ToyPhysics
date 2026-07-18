@@ -1,4 +1,5 @@
 CMakeUserPresets.json
-cmake-build
+cmake-build*
+_deps
 .idea
 imgui.ini
