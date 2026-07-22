@@ -1,11 +1,11 @@
 #pragma once
-#include "Eigen/Dense"
+#include "toy_physics/math.hpp"
 
 namespace toy_physics {
 
 struct Pose {
-    Eigen::Vector3f m_position{};
-    Eigen::Quaternionf m_rotation{Eigen::Quaternionf::Identity()};
+    Vector3 m_position{};
+    Quaternion m_rotation{Eigen::Quaternionf::Identity()};
 
     [[nodiscard]] Pose TransformBy(const Pose& o) const;
     [[nodiscard]] Pose RelativeBy(const Pose& child) const;

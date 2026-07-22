@@ -45,13 +45,13 @@ inline void SegmentNearestPointExample::OnRender3D(float delta_time) {
 }
 
 inline void SegmentNearestPointExample::OnRender2D(float delta_time) {
-    static constexpr float kPanelW = 240.f;
+    static constexpr float kPanelW = 300.f;
     static constexpr float kPanelX = 10.f;
-    static constexpr float kLabelW = 80.f;
-    static constexpr float kCtrlH = 20.f;
-    static constexpr float kPad = 4.f;
+    static constexpr float kLabelW = 110.f;
+    static constexpr float kCtrlH = 28.f;
+    static constexpr float kPad = 6.f;
     static constexpr float kRowH = kCtrlH + kPad;
-    static constexpr float kSecPad = 12.f;
+    static constexpr float kSecPad = 16.f;
 
     float x = (float)GetScreenWidth() - kPanelW - kPanelX;
     float y = 100.f;
@@ -92,9 +92,9 @@ inline void SegmentNearestPointExample::OnRender2D(float delta_time) {
     m_point.RenderGUI(x, y, kPanelW, kLabelW, kCtrlH, "Point P (rel. Segment)");
 
     y += kSecPad;
-    DrawText("o Point P", (int)x + 4, (int)y, 12, RED);
+    DrawText("o Point P", (int)x + 4, (int)y, 16, RED);
     y += 16;
-    DrawText("o Nearest Pt", (int)x + 4, (int)y, 12, PURPLE);
+    DrawText("o Nearest Pt", (int)x + 4, (int)y, 16, PURPLE);
     y += 16;
-    DrawText("-- Nearest Line", (int)x + 4, (int)y, 12, GREEN);
+    DrawText("-- Nearest Line", (int)x + 4, (int)y, 16, GREEN);
 }

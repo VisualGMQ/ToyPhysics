@@ -1,0 +1,9 @@
+/*!
+ * \namespace GinoGJK
+ *
+ * Reference: Gino van den Bergen,
+ * "A Fast and Robust GJK Implementation for Collision Detection of Convex
+ * Objects"
+ *
+ * https://solid.sourceforge.net/jgt98convex.pdf
+ */

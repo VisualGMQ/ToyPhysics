@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CPM_SOURCE_CACHE: ${{ github.workspace }}/.deps
+
+jobs:
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "4.0.0"
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Cache CPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CPM_SOURCE_CACHE }}
+          key: cpm-windows-${{ hashFiles('CMakeLists.txt', 'physics/CMakeLists.txt', 'sandbox/CMakeLists.txt', 'tests/CMakeLists.txt') }}
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja `
+            -DTOYPHYSICS_BUILD_SANDBOX=ON `
+            -DTOYPHYSICS_BUILD_TEST=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "4.0.0"
+
+      - name: Cache CPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CPM_SOURCE_CACHE }}
+          key: cpm-macos-${{ hashFiles('CMakeLists.txt', 'physics/CMakeLists.txt', 'sandbox/CMakeLists.txt', 'tests/CMakeLists.txt') }}
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DTOYPHYSICS_BUILD_SANDBOX=ON \
+            -DTOYPHYSICS_BUILD_TEST=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  ubuntu:
+    name: Ubuntu
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "4.0.0"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libasound2-dev libx11-dev libxrandr-dev \
+            libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxcursor-dev libxinerama-dev
+
+      - name: Cache CPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CPM_SOURCE_CACHE }}
+          key: cpm-ubuntu-${{ hashFiles('CMakeLists.txt', 'physics/CMakeLists.txt', 'sandbox/CMakeLists.txt', 'tests/CMakeLists.txt') }}
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DTOYPHYSICS_BUILD_SANDBOX=ON \
+            -DTOYPHYSICS_BUILD_TEST=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  emscripten:
+    name: Ubuntu / Emscripten
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "4.0.0"
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 6.0.8
+          actions-cache-folder: emsdk-cache
+
+      - name: Cache CPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CPM_SOURCE_CACHE }}
+          key: cpm-web-${{ hashFiles('CMakeLists.txt', 'physics/CMakeLists.txt', 'sandbox/CMakeLists.txt') }}
+
+      - name: Configure
+        run: |
+          emcmake cmake -S . -B build-web -G Ninja \
+            -DTOYPHYSICS_BUILD_SANDBOX=ON
+
+      - name: Build
+        run: cmake --build build-web

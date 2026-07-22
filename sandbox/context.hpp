@@ -4,6 +4,7 @@
 #include "raylib.h"
 #include <array>
 #include <memory>
+#include <vector>
 
 #include <string>
 #include <unordered_map>
@@ -62,7 +63,8 @@ private:
     mutable Model m_model_box = {0};
     mutable Model m_model_sphere = {0};
     mutable Model m_model_cylinder = {0};
-    mutable Model m_model_semi_sphere = {0};
+    Mesh m_sphere_mesh = {0};
+    Mesh m_cylinder_mesh = {0};
     Texture2D m_color_texture = {0};
     Shader m_lighting_shader = {0};
     int m_loc_light_dir = -1;

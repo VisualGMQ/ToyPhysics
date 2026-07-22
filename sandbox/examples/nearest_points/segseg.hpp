@@ -52,13 +52,13 @@ inline void SegSegNearestPointExample::OnRender3D(float delta_time) {
 }
 
 inline void SegSegNearestPointExample::OnRender2D(float delta_time) {
-    static constexpr float kPanelW = 240.f;
+    static constexpr float kPanelW = 300.f;
     static constexpr float kPanelX = 10.f;
-    static constexpr float kLabelW = 80.f;
-    static constexpr float kCtrlH = 20.f;
-    static constexpr float kPad = 4.f;
+    static constexpr float kLabelW = 110.f;
+    static constexpr float kCtrlH = 28.f;
+    static constexpr float kPad = 6.f;
     static constexpr float kRowH = kCtrlH + kPad;
-    static constexpr float kSecPad = 12.f;
+    static constexpr float kSecPad = 16.f;
 
     float x = (float)GetScreenWidth() - kPanelW - kPanelX;
     float y = 100.f;
@@ -103,9 +103,9 @@ inline void SegSegNearestPointExample::OnRender2D(float delta_time) {
     segGUI("Segment A", m_c1, m_r1, m_half1);
     segGUI("Segment B", m_c2, m_r2, m_half2);
 
-    DrawText("o Segments (Blue)", (int)x + 4, (int)y, 12, BLUE);
+    DrawText("o Segments (Blue)", (int)x + 4, (int)y, 16, BLUE);
     y += 16;
-    DrawText("o Nearest Pts (White)", (int)x + 4, (int)y, 12, WHITE);
+    DrawText("o Nearest Pts (White)", (int)x + 4, (int)y, 16, WHITE);
     y += 16;
-    DrawText("-- Nearest Line (Green)", (int)x + 4, (int)y, 12, GREEN);
+    DrawText("-- Nearest Line (Green)", (int)x + 4, (int)y, 16, GREEN);
 }

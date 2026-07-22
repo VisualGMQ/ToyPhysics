@@ -1,6 +1,0 @@
-[submodule "eigen"]
-	path = 3rdlibs/eigen
-	url = https://gitlab.com/libeigen/eigen.git
-[submodule "spdlog"]
-	path = 3rdlibs/spdlog
-	url = https://github.com/gabime/spdlog.git

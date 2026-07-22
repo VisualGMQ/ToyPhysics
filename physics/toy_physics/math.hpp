@@ -2,16 +2,27 @@
 #include "Eigen/Dense"
 #include "toy_physics/config.hpp"
 #include <array>
+#include <span>
 #include <type_traits>
 
 namespace toy_physics {
-
 using Vector3 = Eigen::Vector3<real>;
+using Vector4 = Eigen::Vector4<real>;
+using Matrix33 = Eigen::Matrix<real, 3, 3>;
+using Matrix44 = Eigen::Matrix<real, 4, 4>;
 
-template <size_t N>
-using Vector = Eigen::Vector<real, N>;
+template <typename T, size_t N>
+using Vector = Eigen::Vector<T, N>;
+
+template <size_t Row, size_t Col>
+using MatrixR = Eigen::Matrix<real, Row, Col>;
+
+template <typename T, size_t Row, size_t Col>
+using Matrix = Eigen::Matrix<T, Row, Col>;
 
 using Quaternion = Eigen::Quaternion<real>;
+
+static constexpr auto MATH_PI = EIGEN_PI;
 
 template <typename T>
 requires(std::is_floating_point_v<T>)
@@ -337,26 +348,27 @@ struct TBarycentricCoord {
     T m_beta{};
     T m_gamma{};
 
-    bool IsValid() const {
-        return m_alpha >= 0 && m_beta >= 0 && m_gamma >= 0 &&
-               std::abs((m_alpha + m_beta + m_gamma) - 1) <= 1e-6;
+    [[nodiscard]] bool IsValid() const {
+        return std::abs((m_alpha + m_beta + m_gamma) - T(1)) <= 1e-6;
+    }
+
+    [[nodiscard]] bool IsInnerPoint() const {
+        return IsValid() && m_alpha >= 0 && m_alpha <= 1 && m_beta >= 0 &&
+               m_beta <= 1 && m_gamma >= 0 && m_gamma <= 1;
     }
 
     TBarycentricCoord() = default;
 
     TBarycentricCoord(Vector3 p1, Vector3 p2, Vector3 p3, Vector3 q,
-                      BarycentricPolicy policy = BarycentricPolicy::None) {
+                      BarycentricPolicy policy = BarycentricPolicy::None,
+                      real tolerance = kDefaultRealTolerance) {
         Vector3 d12 = p2 - p1;
         Vector3 d23 = p3 - p2;
         Vector3 norm = d12.cross(d23);
         real s = norm.dot(norm);
 
-        if (std::abs(s) <= std::numeric_limits<real>::epsilon()) {
-            real d12_len = d12.norm();
-            if (std::abs(d12_len) <= std::numeric_limits<real>::epsilon()) {
-                return;
-            }
-            m_alpha = (q - p1).norm() / d12.norm();
+        // fallback to line/point
+        if (std::abs(s) <= tolerance) {
             return;
         }
 
@@ -374,7 +386,7 @@ struct TBarycentricCoord {
             return;
         }
 
-        m_gamma = 1.0 - m_alpha - m_beta;
+        m_gamma = T(1) - m_alpha - m_beta;
     }
 };
 
@@ -382,48 +394,74 @@ using BarycentricCoord = TBarycentricCoord<real>;
 
 template <typename T>
 struct TTetrahedronBarycentric {
-    T m_alpha{};
-    T m_beta{};
-    T m_gamma{};
-    T m_delta{};
+    Vector4 m_coord{Vector4::Zero()};
 
-    bool IsValid() const {
-        return m_alpha >= 0 && m_beta >= 0 && m_gamma >= 0 &&
-               m_delta >= 0 &&
-               std::abs((m_alpha + m_beta + m_gamma + m_delta) - 1) <= 1e-6;
+    [[nodiscard]] bool IsValid() const {
+        return std::abs(m_coord.sum() - 1) <= 1e-6;
     }
 
-    TTetrahedronBarycentric() = default;
+    [[nodiscard]] bool IsInnerPoint() const {
+        return IsValid() && (m_coord.array() >= 0).all() &&
+               (m_coord.array() <= 1).all();
+    }
 
-    TTetrahedronBarycentric(Vector3 a, Vector3 b, Vector3 c, Vector3 d,
-                            Vector3 p,
-                            BarycentricPolicy policy = BarycentricPolicy::None) {
-        Vector3 ab = b - a;
-        Vector3 ac = c - a;
-        Vector3 ad = d - a;
+    TTetrahedronBarycentric() : m_coord(Vector4::Zero()), m_tolerance{1e-6} {}
 
-        Vector3 cad = ac.cross(ad);
-        real denom = ab.dot(cad);
-        if (std::abs(denom) <= std::numeric_limits<real>::epsilon()) {
+    TTetrahedronBarycentric(std::span<const Vector3, 4> pts, Vector3 p,
+                            BarycentricPolicy policy = BarycentricPolicy::None,
+                            real tolerance = kDefaultRealTolerance)
+        : m_tolerance{tolerance} {
+        Vector3 d01 = pts[1] - pts[0];
+        Vector3 d02 = pts[2] - pts[0];
+        Vector3 d03 = pts[3] - pts[0];
+
+        Vector3 cross02_03 = d02.cross(d03);
+        real denom = d01.dot(cross02_03);
+
+        if (std::abs(denom) <= tolerance) {
             return;
         }
 
-        real inv_denom = real{1} / denom;
-        Vector3 v = p - a;
+        Vector3 dp0 = pts[0] - p;
+        Vector3 dp1 = pts[1] - p;
+        Vector3 dp2 = pts[2] - p;
+        Vector3 dp3 = pts[3] - p;
 
-        m_alpha = (b - p).dot((c - p).cross(d - p)) * inv_denom;
-        if (m_alpha < 0 && policy == BarycentricPolicy::StopWhenNegative) return;
+        real inv_denom = 1 / denom;
+        Vector3 v = -dp0;
 
-        m_beta = v.dot(cad) * inv_denom;
-        if (m_beta < 0 && policy == BarycentricPolicy::StopWhenNegative) return;
+        m_coord[0] = (dp1).dot((dp2).cross(dp3)) * inv_denom;
+        if (m_coord[0] < 0 && policy == BarycentricPolicy::StopWhenNegative)
+            return;
 
-        m_gamma = ab.dot(v.cross(ad)) * inv_denom;
-        if (m_gamma < 0 && policy == BarycentricPolicy::StopWhenNegative) return;
+        m_coord[1] = v.dot(d01.cross(d03)) * inv_denom;
+        if (m_coord[1] < 0 && policy == BarycentricPolicy::StopWhenNegative)
+            return;
 
-        m_delta = T{1} - m_alpha - m_beta - m_gamma;
+        Vector3 d13 = pts[3] - pts[1];
+        m_coord[2] = d01.dot(v.cross(d13)) * inv_denom;
+        if (m_coord[2] < 0 && policy == BarycentricPolicy::StopWhenNegative)
+            return;
+
+        m_coord[3] = 1 - m_coord[0] - m_coord[1] - m_coord[2];
     }
+
+private:
+    real m_tolerance{kDefaultRealTolerance};
 };
 
 using TetrahedronBarycentric = TTetrahedronBarycentric<real>;
 
-}
+inline int GetFurthestAxis(Vector3 v) {
+    Eigen::Index idx;
+    v.cwiseAbs().minCoeff(&idx);
+    return static_cast<int>(idx);
+}  // namespace toy_physics
+
+inline int GetNearestAxis(Vector3 v) {
+    Eigen::Index idx;
+    v.cwiseAbs().maxCoeff(&idx);
+    return static_cast<int>(idx);
+}  // namespace toy_physics
+
+}  // namespace toy_physics

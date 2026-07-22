@@ -41,45 +41,45 @@ public:
 
 class BoxGeometry : public Geometry {
 public:
-    explicit BoxGeometry(const Eigen::Vector3f& size);
+    explicit BoxGeometry(Vector3 size);
 
     [[nodiscard]] Type GetType() const override;
 
-    Eigen::Vector3f m_half_size;
+    Vector3 m_half_size;
 };
 
 class SphereGeometry : public Geometry {
 public:
-    explicit SphereGeometry(float radius);
+    explicit SphereGeometry(real radius);
 
     [[nodiscard]] Type GetType() const override;
 
-    float m_radius;
+    real m_radius;
 };
 
 class CapsuleGeometry : public Geometry {
 public:
-    explicit CapsuleGeometry(float radius, float height);
+    explicit CapsuleGeometry(real radius, real height);
 
     [[nodiscard]] Type GetType() const override;
 
-    float m_radius;
-    float m_height;
+    real m_radius;
+    real m_height;
 };
 
 using GeometryPtr = std::shared_ptr<Geometry>;
 
 struct BoundingBox {
-    Eigen::Vector3f m_min;
-    Eigen::Vector3f m_max;
+    Vector3 m_min;
+    Vector3 m_max;
 
     BoundingBox();
-    BoundingBox(const Eigen::Vector3f& min, const Eigen::Vector3f& max);
+    BoundingBox(Vector3 min, Vector3 max);
 
-    static BoundingBox FromCenter(const Eigen::Vector3f& center,
-                                  const Eigen::Vector3f& half_size);
-    static BoundingBox FromMinMax(const Eigen::Vector3f& min,
-                                  const Eigen::Vector3f& max);
+    static BoundingBox FromCenter(Vector3 center,
+                                  Vector3 half_size);
+    static BoundingBox FromMinMax(Vector3 min,
+                                  Vector3 max);
 
     [[nodiscard]] bool IsValid() const;
 
@@ -93,8 +93,8 @@ namespace internal {
 
 template <size_t N>
 struct KDOPData {
-    Vector<N> m_mins = Vector<N>::Zero();
-    Vector<N> m_maxs = Vector<N>::Zero();
+    Vector<real, N> m_mins = Vector<real, N>::Zero();
+    Vector<real, N> m_maxs = Vector<real, N>::Zero();
 };
 
 }

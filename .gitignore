@@ -1,5 +1,8 @@
 CMakeUserPresets.json
 cmake-build*
-_deps
+emcmake-build*
+.deps
 .idea
 imgui.ini
+doxygen-gen
+AGENTS.md

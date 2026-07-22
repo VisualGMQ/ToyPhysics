@@ -17,3 +17,24 @@ git submodule update --init --recursive
 cmake -S . -B cmake-build
 cmake --build cmake-build
 ```
+
+or build to web using emscripten:
+
+```bash
+emcmake cmake -S . -B emcmake-build
+cmake --build emcmake-build --target sandbox
+```
+
+will output `sandbox.html`.
+
+## How to generate doc
+
+Using [Doxygen](https://www.doxygen.nl/index.html).
+
+NOTE: mathjax render need connect to net
+
+```bash
+doxygen doc/Doxyfile
+```
+
+it will generate to doxygen-gen.

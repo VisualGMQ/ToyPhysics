@@ -19,19 +19,19 @@ CapsuleGeometry* Geometry::AsCapsule() {
                                       : nullptr;
 }
 
-BoxGeometry::BoxGeometry(const Eigen::Vector3f& size) : m_half_size{size} {}
+BoxGeometry::BoxGeometry(Vector3 size) : m_half_size{size} {}
 
 Geometry::Type BoxGeometry::GetType() const {
     return Type::Box;
 }
 
-SphereGeometry::SphereGeometry(float radius) : m_radius{radius} {}
+SphereGeometry::SphereGeometry(real radius) : m_radius{radius} {}
 
 Geometry::Type SphereGeometry::GetType() const {
     return Type::Sphere;
 }
 
-CapsuleGeometry::CapsuleGeometry(float radius, float height)
+CapsuleGeometry::CapsuleGeometry(real radius, real height)
     : m_radius{radius}, m_height{height} {}
 
 Geometry::Type CapsuleGeometry::GetType() const {
@@ -41,13 +41,13 @@ Geometry::Type CapsuleGeometry::GetType() const {
 BoundingBox::BoundingBox()
     : m_min{Eigen::Vector3f::Zero()}, m_max{Eigen::Vector3f::Zero()} {}
 
-BoundingBox::BoundingBox(const Eigen::Vector3f& min, const Eigen::Vector3f& max)
+BoundingBox::BoundingBox(Vector3 min, Vector3 max)
     : m_min{min}, m_max{max} {
     TOY_CHECK(IsValid());
 }
 
-BoundingBox BoundingBox::FromCenter(const Eigen::Vector3f& center,
-                                    const Eigen::Vector3f& half_size) {
+BoundingBox BoundingBox::FromCenter(Vector3 center,
+                                    Vector3 half_size) {
     TOY_CHECK(half_size.x() > 0 && half_size.y() > 0 && half_size.z() > 0);
     BoundingBox result;
     result.m_min = center - half_size;
@@ -55,8 +55,8 @@ BoundingBox BoundingBox::FromCenter(const Eigen::Vector3f& center,
     return result;
 }
 
-BoundingBox BoundingBox::FromMinMax(const Eigen::Vector3f& min,
-                                    const Eigen::Vector3f& max) {
+BoundingBox BoundingBox::FromMinMax(Vector3 min,
+                                    Vector3 max) {
     return {min, max};
 }
 

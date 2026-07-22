@@ -29,10 +29,20 @@
     }
 
 #ifdef TOY_PHYSICS_CHECK
-#define TOY_CHECK(expr)                \
-    if (!(expr)) {                     \
+#define TOY_CHECK(expr)               \
+    if (!(expr)) {                    \
         LOGE("Check Failed: " #expr); \
     }
 #else
 #define TOY_CHECK(expr)
+#endif
+
+#ifdef TOY_PHYSICS_ASSERT
+#define TOY_ASSERT(expr)               \
+    if (!(expr)) {                     \
+        LOGE("Assert Failed: " #expr); \
+        assert((void(#expr), false));  \
+    }
+#else
+#define TOY_ASSERT(expr)
 #endif

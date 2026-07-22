@@ -1,12 +1,5 @@
 ﻿include(CTest)
-
-FetchContent_Declare(
-    Catch2
-    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-    GIT_TAG         191fa38c9b1596cd2576ab531d4ab4d5e8e05190 # release-3.15.2
-    GIT_PROGRESS    TRUE
-)
-FetchContent_MakeAvailable(Catch2)
+CPMAddPackage("gh:catchorg/Catch2@3.15.2")
 
 macro(AddTest test_name)
     add_executable(${test_name}_test ${test_name}.cpp)

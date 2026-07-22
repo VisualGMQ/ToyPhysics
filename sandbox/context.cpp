@@ -26,6 +26,7 @@ void Context::Initialize() {
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetTargetFPS(120);
     GuiLoadStyleDefault();
+    GuiSetStyle(DEFAULT, TEXT_SIZE, 20);
     initTexture();
     initLightingShader();
     loadModels();
@@ -54,8 +55,13 @@ void Context::initTexture() {
 }
 
 void Context::initLightingShader() {
+#ifdef TOY_PHYSICS_PLATFORM_WEB
+    m_lighting_shader =
+        LoadShader("sandbox/assets/vert_web.glsl", "sandbox/assets/frag_web.glsl");
+#else
     m_lighting_shader =
         LoadShader("sandbox/assets/vert.glsl", "sandbox/assets/frag.glsl");
+#endif
 
     m_loc_light_dir = GetShaderLocation(m_lighting_shader, "lightDir");
     m_loc_view_pos = GetShaderLocation(m_lighting_shader, "viewPos");
@@ -67,10 +73,19 @@ void Context::initLightingShader() {
 }
 
 void Context::loadModels() {
-    m_model_box = LoadModel("sandbox/assets/cube.obj");
-    m_model_sphere = LoadModel("sandbox/assets/sphere.obj");
-    m_model_cylinder = LoadModel("sandbox/assets/cylinder.obj");
-    m_model_semi_sphere = LoadModel("sandbox/assets/semi-sphere.obj");
+    Mesh box_mesh = GenMeshCube(1.0f, 1.0f, 1.0f);
+    m_model_box = LoadModelFromMesh(box_mesh);
+
+    m_sphere_mesh = GenMeshSphere(0.5f, 64, 64);
+    m_model_sphere = LoadModelFromMesh(m_sphere_mesh);
+
+    m_cylinder_mesh = GenMeshCylinder(0.5f, 1.0f, 64);
+    for (int i = 0; i < m_cylinder_mesh.vertexCount; i++) {
+        m_cylinder_mesh.vertices[i * 3 + 1] -= 0.5f;
+    }
+    UpdateMeshBuffer(m_cylinder_mesh, 0, m_cylinder_mesh.vertices,
+                     m_cylinder_mesh.vertexCount * 3 * sizeof(float), 0);
+    m_model_cylinder = LoadModelFromMesh(m_cylinder_mesh);
 
     m_model_box.materials[0].shader = m_lighting_shader;
     m_model_box.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = WHITE;
@@ -83,10 +98,6 @@ void Context::loadModels() {
     m_model_cylinder.materials[0].shader = m_lighting_shader;
     m_model_cylinder.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = WHITE;
     m_model_cylinder.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture =
-        m_color_texture;
-    m_model_semi_sphere.materials[0].shader = m_lighting_shader;
-    m_model_semi_sphere.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = WHITE;
-    m_model_semi_sphere.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture =
         m_color_texture;
 }
 
@@ -108,25 +119,25 @@ void Context::showHelpMsg() const {
     if (m_cur_example) {
         example_hint_str = std::string{"Example: "} + m_cur_example->GetName();
     }
-    constexpr size_t font_size = 20;
-    DrawText(example_hint_str.c_str(), 20, 20, font_size, ORANGE);
-    DrawText("Press ESC to quit", 20, 40, font_size, BLACK);
+    constexpr size_t font_size = 26;
+    DrawText(example_hint_str.c_str(), 20, 24, font_size, ORANGE);
+    DrawText("Press ESC to quit", 20, 60, font_size, BLACK);
     const std::string camera_mode_text =
         "Tab to switch camera mode: " + camera_mode_name;
-    DrawText(camera_mode_text.c_str(), 20, 60, font_size, BLACK);
-    DrawText("Press L-Alt to toggle mouse", 20, 80, font_size, BLACK);
+    DrawText(camera_mode_text.c_str(), 20, 96, font_size, BLACK);
+    DrawText("Press L-Alt to toggle mouse", 20, 132, font_size, BLACK);
 }
 
 void Context::renderExampleMenu() {
-    static constexpr float kHeaderHeight = 24.f;
-    static constexpr float kBtnHeight = 28.f;
-    static constexpr float kBtnPad = 2.f;
-    static constexpr float kMinW = 150.f;
+    static constexpr float kHeaderHeight = 32.f;
+    static constexpr float kBtnHeight = 38.f;
+    static constexpr float kBtnPad = 3.f;
+    static constexpr float kMinW = 200.f;
     static constexpr float kMinH = kHeaderHeight + kBtnHeight;
-    static constexpr float kResizeSz = 16.f;
+    static constexpr float kResizeSz = 20.f;
 
     static bool visible = true;
-    static Rectangle bounds = {10.f, 100.f, 220.f, 300.f};
+    static Rectangle bounds = {10.f, 200.f, 220.f, 300.f};
     static bool drag = false;
     static bool sizing = false;
     static Vector2 dragStart = {};
@@ -169,11 +180,7 @@ void Context::renderExampleMenu() {
             std::max(dragStartBounds.height + (mouse.y - dragStart.y), kMinH);
     }
 
-    GuiWindowBox(bounds, "Examples");
-
-    Rectangle closeBtn = {bounds.x + bounds.width - 24.f, bounds.y + 3.f, 18.f,
-                          18.f};
-    if (GuiButton(closeBtn, "#143#")) {
+    if (GuiWindowBox(bounds, "Examples")) {
         visible = false;
         return;
     }
@@ -208,9 +215,11 @@ void Context::renderExampleMenu() {
 
     EndScissorMode();
 
-    GuiLabel(resizeHit, "#033#");
-    Rectangle hintRect = {bounds.x + 4.f, bounds.y + bounds.height - 14.f,
-                          bounds.width - kResizeSz, 14.f};
+    GuiLabel({bounds.x + bounds.width - 16.f, bounds.y + bounds.height - 16.f,
+              16.f, 16.f},
+             "#033#");
+    Rectangle hintRect = {bounds.x + 4.f, bounds.y + bounds.height - 18.f,
+                          bounds.width - kResizeSz, 18.f};
     int prevColor = GuiGetStyle(LABEL, TEXT_COLOR_NORMAL);
     GuiSetStyle(LABEL, TEXT_COLOR_NORMAL, 0x00bb00ff);
     GuiLabel(hintRect, "M: Toggle");
@@ -243,7 +252,6 @@ void Context::Shutdown() {
     UnloadModel(m_model_box);
     UnloadModel(m_model_sphere);
     UnloadModel(m_model_cylinder);
-    UnloadModel(m_model_semi_sphere);
     UnloadTexture(m_color_texture);
     UnloadShader(m_lighting_shader);
     CloseWindow();
@@ -353,7 +361,7 @@ void Context::DrawCapsule(Vector3 center, Vector3 rotation, float height,
     rlRotatef(rotation.z, 0.0f, 0.0f, 1.0f);
     rlTranslatef(0.0f, halfHeight, 0.0f);
     rlScalef(radius * 2.0f, radius * 2.0f, radius * 2.0f);
-    DrawModel(m_model_semi_sphere, Vector3{0, 0, 0}, 1.0f, color);
+    DrawModel(m_model_sphere, Vector3{0, 0, 0}, 1.0f, color);
     rlPopMatrix();
 
     // bottom semi-sphere (flipped down)
@@ -365,7 +373,7 @@ void Context::DrawCapsule(Vector3 center, Vector3 rotation, float height,
     rlTranslatef(0.0f, -halfHeight, 0.0f);
     rlRotatef(180.0f, 1.0f, 0.0f, 0.0f);
     rlScalef(radius * 2.0f, radius * 2.0f, radius * 2.0f);
-    DrawModel(m_model_semi_sphere, Vector3{0, 0, 0}, 1.0f, color);
+    DrawModel(m_model_sphere, Vector3{0, 0, 0}, 1.0f, color);
     rlPopMatrix();
 }
 

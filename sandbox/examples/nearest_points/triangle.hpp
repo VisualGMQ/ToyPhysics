@@ -57,13 +57,13 @@ inline void TriangleNearestPointExample::OnRender3D(float delta_time) {
 }
 
 inline void TriangleNearestPointExample::OnRender2D(float delta_time) {
-    static constexpr float kPanelW = 240.f;
+    static constexpr float kPanelW = 300.f;
     static constexpr float kPanelX = 10.f;
-    static constexpr float kLabelW = 80.f;
-    static constexpr float kCtrlH = 20.f;
-    static constexpr float kPad = 4.f;
+    static constexpr float kLabelW = 110.f;
+    static constexpr float kCtrlH = 28.f;
+    static constexpr float kPad = 6.f;
     static constexpr float kRowH = kCtrlH + kPad;
-    static constexpr float kSecPad = 12.f;
+    static constexpr float kSecPad = 16.f;
 
     float x = (float)GetScreenWidth() - kPanelW - kPanelX;
     float y = 100.f;
@@ -81,19 +81,19 @@ inline void TriangleNearestPointExample::OnRender2D(float delta_time) {
 
     lbl({x, y, kLabelW, kCtrlH}, "Center X");
     GuiSliderBar({x + kLabelW, y, kPanelW - kLabelW, kCtrlH},
-                 nullptr, nullptr, &m_center.x, -20, 20);
+                 nullptr, nullptr, &m_center.x, -30, 30);
     y += kRowH;
     lbl({x, y, kLabelW, kCtrlH}, "Center Y");
     GuiSliderBar({x + kLabelW, y, kPanelW - kLabelW, kCtrlH},
-                 nullptr, nullptr, &m_center.y, -20, 20);
+                 nullptr, nullptr, &m_center.y, -30, 30);
     y += kRowH;
     lbl({x, y, kLabelW, kCtrlH}, "Center Z");
     GuiSliderBar({x + kLabelW, y, kPanelW - kLabelW, kCtrlH},
-                 nullptr, nullptr, &m_center.z, -20, 20);
+                 nullptr, nullptr, &m_center.z, -30, 30);
     y += kRowH;
     lbl({x, y, kLabelW, kCtrlH}, "Size");
     GuiSliderBar({x + kLabelW, y, kPanelW - kLabelW, kCtrlH},
-                 nullptr, nullptr, &m_size, 0.5f, 10);
+                 nullptr, nullptr, &m_size, 0.1f, 15);
     y += kRowH;
 
     lbl({x, y, kLabelW, kCtrlH}, "Pitch");
@@ -118,16 +118,16 @@ inline void TriangleNearestPointExample::OnRender2D(float delta_time) {
         snprintf(label, sizeof(label), "V%d", i);
         lbl({x, y, kLabelW, kCtrlH}, label);
         GuiSliderBar({x + kLabelW, y, kPanelW - kLabelW, kCtrlH},
-                     nullptr, nullptr, &m_v_scale[i], 0.1f, 3);
+                     nullptr, nullptr, &m_v_scale[i], 0.0f, 5);
         y += kRowH;
     }
     y += kSecPad;
 
     m_point.RenderGUI(x, y, kPanelW, kLabelW, kCtrlH, "Point P");
     y += kSecPad;
-    DrawText("o Point P", (int)x + 4, (int)y, 12, RED);
+    DrawText("o Point P", (int)x + 4, (int)y, 16, RED);
     y += 16;
-    DrawText("o Nearest Pt", (int)x + 4, (int)y, 12, PURPLE);
+    DrawText("o Nearest Pt", (int)x + 4, (int)y, 16, PURPLE);
     y += 16;
-    DrawText("-- Nearest Line", (int)x + 4, (int)y, 12, GREEN);
+    DrawText("-- Nearest Line", (int)x + 4, (int)y, 16, GREEN);
 }
