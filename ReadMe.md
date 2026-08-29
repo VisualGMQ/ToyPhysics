@@ -4,19 +4,15 @@ For learning game physics engine
 
 ## How To Build
 
-
-1. fetch 3rdlibs by git submodule:
-
-```bash
-git submodule update --init --recursive
-```
-
-2. build using cmake
+build using cmake
 
 ```bash
 cmake -S . -B cmake-build
 cmake --build cmake-build
 ```
+
+it will auto download dependencies.
+
 
 or build to web using emscripten:
 
@@ -38,3 +34,7 @@ doxygen doc/Doxyfile
 ```
 
 it will generate to doxygen-gen.
+
+## Code Read Note
+
+`sandbox/` is wrote in AI completely. DON'T read them.

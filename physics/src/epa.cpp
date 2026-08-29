@@ -14,6 +14,16 @@ static std::array<TopoTriangle*, kEPA_MAX_FACE_COUNT> triangle_heap{nullptr};
 
 static constexpr real kEPARelError2 = 1e-6;
 
+// support functions expect a unit direction; normalize the search
+// direction (with a fallback for the zero vector) before the query
+static Vector3 NormalizeSupportDir(Vector3 v) {
+    real len = v.norm();
+    if (len <= kREAL_EPSILON) {
+        return Vector3::UnitX();
+    }
+    return v / len;
+}
+
 class TriangleComp {
 public:
     bool operator()(const TopoTriangle* face1, const TopoTriangle* face2) {
@@ -162,6 +172,7 @@ bool CalcPenetrationDepth(GJK& gjk,
             Vector3 v1 = yBuf[1] - yBuf[0];
             Vector3 v2 = yBuf[2] - yBuf[0];
             Vector3 vv = v1.cross(v2);
+            vv.normalize();
 
             pBuf[3] = support1(vv);
             qBuf[3] = support2(-vv);
@@ -282,8 +293,9 @@ bool CalcPenetrationDepth(const SupportFunction& support1,
     real delta;
 
     do {
-        p1 = support1(-v);
-        p2 = support2(v);
+        Vector3 u = NormalizeSupportDir(v);
+        p1 = support1(-u);
+        p2 = support2(u);
         w = p1 - p2;
         // origin behind half-plane
         if (w.dot(v) > 0) {

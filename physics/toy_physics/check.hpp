@@ -29,9 +29,9 @@
     }
 
 #ifdef TOY_PHYSICS_CHECK
-#define TOY_CHECK(expr)               \
-    if (!(expr)) {                    \
-        LOGE("Check Failed: " #expr); \
+#define TOY_CHECK(expr)                                 \
+    if (!(expr)) {                                      \
+        LOGE("Check Failed[{}]: " #expr, __FUNCTION__); \
     }
 #else
 #define TOY_CHECK(expr)

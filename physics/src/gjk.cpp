@@ -86,7 +86,7 @@ bool CalcCommonPoint(const SupportFunction& support1,
 real CalcClosestPoints(const SupportFunction& support1,
                        const SupportFunction& support2, Vector3& out_p1,
                        Vector3& out_p2, real max_dist2, real tolerance) {
-    Vector3 v = Vector3::Zero();
+    Vector3 v = Vector3::UnitX();
     GJK gjk;
 
     real dist2 = kREAL_MAX;
@@ -170,6 +170,93 @@ real CalcClosestPoints(const SupportFunction& support1,
     } while (!gjk.IsFullSimplex() && dist2 > tolerance * gjk.GetMaxDist2());
 
     return true;
+}
+
+int Sweep(const SupportFunction& support1, const SupportFunction& support2,
+          Vector3 dir, real len, bool need_mtd, real* out_t,
+          Vector3* out_position, Vector3* out_normal, Vector3* out_witness1,
+          Vector3* out_witness2, real tolerance) {
+    TOY_ENSURE_RV(dir.isUnitary(), 0);
+    TOY_ENSURE_RV(len >= kREAL_EPSILON, 0);
+
+    Vector3 r = dir * len;
+
+    real lambda = 0;
+    Vector3 x = Vector3::Zero();
+    Vector3 n = Vector3::Zero();
+    Vector3 v = support1(-dir) - support2(dir);
+    Vector3 p1 = Vector3::Zero();
+    Vector3 p2 = Vector3::Zero();
+    GJK gjk;
+
+    real max_dist2 = 0;
+    while (v.squaredNorm() > tolerance * max_dist2) {
+        Vector3 s2 = support2(v);
+        Vector3 s1 = support1(-v);
+        Vector3 p = s2 - s1;
+        Vector3 w = x - p;
+        max_dist2 = std::max(max_dist2, w.squaredNorm());
+        if (v.dot(w) > 0) {
+            if (v.dot(r) >= 0) {
+                return 0;
+            }
+            lambda -= v.dot(w) / v.dot(r);
+            if (lambda > 1) {
+                return 0;
+            }
+            x = lambda * r;
+            n = v;
+        }
+        // numerical degeneracy (tiny Delta_i(Y))
+        // result instead of adding to a full simplex
+        if (gjk.IsFullSimplex()) {
+            break;
+        }
+        if (gjk.IsInSimplex(w)) {
+            break;
+        }
+        gjk.AddVertex(w, x + s1, s2);
+        if (!gjk.GetClosest(v)) {
+            v = Vector3::Zero();
+        }
+    }
+
+    if (need_mtd && lambda <= 0 && !gjk.IsEmptySimplex()) {
+        gjk.ComputeNearestPoints(p1, p2);
+    }
+
+    // initial overlap
+    if (lambda <= 0) {
+        if (out_t) {
+            *out_t = 0;
+        }
+        if (out_position) {
+            *out_position = x;
+        }
+        if (out_normal) {
+            *out_normal = Vector3::Zero();
+        }
+        if (need_mtd) {
+            if (out_witness1) {
+                *out_witness1 = p1;
+            }
+            if (out_witness2) {
+                *out_witness2 = p2;
+            }
+        }
+        return -1;
+    }
+
+    if (out_t) {
+        *out_t = lambda;
+    }
+    if (out_position) {
+        *out_position = x;
+    }
+    if (out_normal) {
+        *out_normal = n.isZero() ? Vector3::Zero() : n.normalized();
+    }
+    return 1;
 }
 
 bool GJK::IsEmptySimplex() const {

@@ -1,0 +1,147 @@
+#pragma once
+#include "example.hpp"
+#include "examples/sweep/util.hpp"
+#include "toy_physics/algorithm.hpp"
+#include "toy_physics/gjk.hpp"
+
+class SphereTriangleSweepExample : public IExample {
+public:
+    using IExample::IExample;
+    void OnUpdate(float delta_time) override;
+    void OnRender3D(float delta_time) override;
+    void OnRender2D(float delta_time) override;
+
+private:
+    ::Vector3 m_c1 = {-6, 10, 0};
+    float m_r1 = 1.f;
+    ::Vector3 m_c2 = {4, 10, 0};
+    ::Vector3 m_r2 = {0, 90, 0};
+    float m_size2 = 3.f;
+    SweepControl m_sweep;
+    int m_status = 0;
+    toy_physics::real m_t = 0;
+    toy_physics::Vector3 m_pos = toy_physics::Vector3::Zero();
+    toy_physics::Vector3 m_nrm = toy_physics::Vector3::Zero();
+    toy_physics::Vector3 m_w1 = toy_physics::Vector3::Zero();
+    toy_physics::Vector3 m_w2 = toy_physics::Vector3::Zero();
+};
+
+inline void SphereTriangleSweepExample::OnUpdate(float delta_time) {}
+
+inline void SphereTriangleSweepExample::OnRender3D(float delta_time) {
+    ::Vector3 dir = m_sweep.GetDirection();
+
+    ::Vector3 local[3] = {
+        {0, 1, 0},
+        {-0.866f, -0.5f, 0},
+        {0.866f, -0.5f, 0},
+    };
+    Matrix rot = MatrixRotateXYZ({m_r2.x * DEG2RAD, m_r2.y * DEG2RAD,
+                                  m_r2.z * DEG2RAD});
+    std::array<toy_physics::Vector3, 3> tri;
+    ::Vector3 world[3];
+    for (int i = 0; i < 3; ++i) {
+        ::Vector3 l = {local[i].x * m_size2, local[i].y * m_size2,
+                       local[i].z * m_size2};
+        world[i] = Vector3Add(m_c2, Vector3Transform(l, rot));
+        tri[i] = ToVec3(world[i]);
+    }
+
+    toy_physics::SphereSupportFunction s1(ToVec3(m_c1), m_r1);
+    toy_physics::PolygonSupportFunction s2(tri);
+    m_status = toy_physics::Sweep(s1, s2, ToVec3(dir), m_sweep.m_len, true, &m_t,
+                                  &m_pos, &m_nrm, &m_w1, &m_w2);
+
+    DrawTriangle3D(world[0], world[1], world[2], {0, 0, 255, 80});
+    DrawTriangle3D(world[1], world[0], world[2], {0, 0, 255, 80});
+    for (int i = 0; i < 3; ++i) {
+        DrawLine3D(world[i], world[(i + 1) % 3], BLUE);
+        DrawSphere(world[i], 0.15f, BLUE);
+    }
+    m_ctx.DrawSphere(m_c1, {0, 0, 0}, m_r1, BLUE);
+    if (m_status == 1) {
+        m_ctx.DrawSphere(
+            Vector3Add(m_c1, Vector3Scale(dir, m_t * m_sweep.m_len)),
+            {0, 0, 0}, m_r1, GREEN);
+        DrawContact(Vector3Add(m_c1, FromVec3(m_pos)), m_nrm);
+    }
+    if (m_status == -1) {
+        DrawWitness(FromVec3(m_w1), FromVec3(m_w2));
+    }
+    DrawSweepDir(m_c1, dir, m_sweep.m_len);
+}
+
+inline void SphereTriangleSweepExample::OnRender2D(float delta_time) {
+    static constexpr float kPanelW = 300.f;
+    static constexpr float kPanelX = 10.f;
+    static constexpr float kLabelW = 110.f;
+    static constexpr float kCtrlH = 22.f;
+    static constexpr float kPad = 4.f;
+    static constexpr float kRowH = kCtrlH + kPad;
+    static constexpr float kSecPad = 12.f;
+
+    float x = (float)GetScreenWidth() - kPanelW - kPanelX;
+    float y = 90.f;
+
+    auto lbl = [](Rectangle r, const char* text) {
+        int prev = GuiGetStyle(LABEL, TEXT_ALIGNMENT);
+        GuiSetStyle(LABEL, TEXT_ALIGNMENT, TEXT_ALIGN_RIGHT);
+        GuiLabel(r, text);
+        GuiSetStyle(LABEL, TEXT_ALIGNMENT, prev);
+    };
+
+    GuiGroupBox({x, y, kPanelW, kRowH * 5 + kSecPad + kPad}, "Sphere (swept)");
+    y += kRowH;
+    lbl({x, y, kLabelW, kCtrlH}, "Center X");
+    GuiSliderBar({x + kLabelW, y, kPanelW - kLabelW, kCtrlH}, nullptr, nullptr,
+                 &m_c1.x, -20, 20);
+    y += kRowH;
+    lbl({x, y, kLabelW, kCtrlH}, "Center Y");
+    GuiSliderBar({x + kLabelW, y, kPanelW - kLabelW, kCtrlH}, nullptr, nullptr,
+                 &m_c1.y, 0, 20);
+    y += kRowH;
+    lbl({x, y, kLabelW, kCtrlH}, "Center Z");
+    GuiSliderBar({x + kLabelW, y, kPanelW - kLabelW, kCtrlH}, nullptr, nullptr,
+                 &m_c1.z, -20, 20);
+    y += kRowH;
+    lbl({x, y, kLabelW, kCtrlH}, "Radius");
+    GuiSliderBar({x + kLabelW, y, kPanelW - kLabelW, kCtrlH}, nullptr, nullptr,
+                 &m_r1, 0.2f, 5);
+    y += kRowH + kSecPad;
+
+    GuiGroupBox({x, y, kPanelW, kRowH * 8 + kSecPad + kPad},
+                "Triangle (static)");
+    y += kRowH;
+    lbl({x, y, kLabelW, kCtrlH}, "Center X");
+    GuiSliderBar({x + kLabelW, y, kPanelW - kLabelW, kCtrlH}, nullptr, nullptr,
+                 &m_c2.x, -20, 20);
+    y += kRowH;
+    lbl({x, y, kLabelW, kCtrlH}, "Center Y");
+    GuiSliderBar({x + kLabelW, y, kPanelW - kLabelW, kCtrlH}, nullptr, nullptr,
+                 &m_c2.y, 0, 20);
+    y += kRowH;
+    lbl({x, y, kLabelW, kCtrlH}, "Center Z");
+    GuiSliderBar({x + kLabelW, y, kPanelW - kLabelW, kCtrlH}, nullptr, nullptr,
+                 &m_c2.z, -20, 20);
+    y += kRowH;
+    lbl({x, y, kLabelW, kCtrlH}, "Size");
+    GuiSliderBar({x + kLabelW, y, kPanelW - kLabelW, kCtrlH}, nullptr, nullptr,
+                 &m_size2, 0.5f, 10);
+    y += kRowH;
+    lbl({x, y, kLabelW, kCtrlH}, "Pitch");
+    GuiSliderBar({x + kLabelW, y, kPanelW - kLabelW, kCtrlH}, nullptr, nullptr,
+                 &m_r2.x, -180, 180);
+    y += kRowH;
+    lbl({x, y, kLabelW, kCtrlH}, "Yaw");
+    GuiSliderBar({x + kLabelW, y, kPanelW - kLabelW, kCtrlH}, nullptr, nullptr,
+                 &m_r2.y, -180, 180);
+    y += kRowH;
+    lbl({x, y, kLabelW, kCtrlH}, "Roll");
+    GuiSliderBar({x + kLabelW, y, kPanelW - kLabelW, kCtrlH}, nullptr, nullptr,
+                 &m_r2.z, -180, 180);
+    y += kRowH + kSecPad;
+
+    m_sweep.RenderGUI(x, y, kPanelW, kLabelW, kCtrlH);
+    DrawSweepInfo(m_status, m_t, m_nrm, x, y);
+    DrawSweepLegend(x, y);
+}

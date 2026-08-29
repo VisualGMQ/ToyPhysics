@@ -153,10 +153,28 @@ private:
                                    const SupportFunction& support2,
                                    Vector3 init_dir, Vector3& out_p1,
                                    Vector3& out_p2, real tolerance = 1e-3);
+
+/**
+ * Calc closest points using GJK
+ * @return squared distance
+ */
 real CalcClosestPoints(const SupportFunction& support1,
                        const SupportFunction& support2, Vector3& out_p1,
                        Vector3& out_p2, real max_dist2, real tolerance = 1e-3);
 [[nodiscard]] bool IsIntersect(const SupportFunction& support1,
                                const SupportFunction& support2,
                                Vector3 init_dir, real tolerance = 1e-3);
-}  // namespace toy_physics
+
+/**
+ * (Gino van den Bergen, "Ray Casting against General Convex Objects with
+ * Application to Continuous Collision Detection", 2004).
+ *
+ * @return 1 on hit, 0 on miss, -1 on initial overlap
+ */
+[[nodiscard]] int Sweep(const SupportFunction& support1,
+                        const SupportFunction& support2, Vector3 dir, real len,
+                        bool need_mtd, real* out_t, Vector3* out_position,
+                        Vector3* out_normal, Vector3* out_witness1,
+                        Vector3* out_witness2,
+                        real tolerance = kREAL_EPSILON * 10);
+}

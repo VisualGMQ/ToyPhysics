@@ -3,7 +3,10 @@
 #include "raymath.h"
 #include "rlgl.h"
 
+#include <algorithm>
+#include <cstdio>
 #include <fstream>
+#include <map>
 
 #include "toy_physics/log.hpp"
 
@@ -132,8 +135,9 @@ void Context::renderExampleMenu() {
     static constexpr float kHeaderHeight = 32.f;
     static constexpr float kBtnHeight = 38.f;
     static constexpr float kBtnPad = 3.f;
+    static constexpr float kFooterH = kBtnHeight + kBtnPad * 2;
     static constexpr float kMinW = 200.f;
-    static constexpr float kMinH = kHeaderHeight + kBtnHeight;
+    static constexpr float kMinH = kHeaderHeight + kFooterH + kBtnHeight;
     static constexpr float kResizeSz = 20.f;
 
     static bool visible = true;
@@ -143,6 +147,7 @@ void Context::renderExampleMenu() {
     static Vector2 dragStart = {};
     static Rectangle dragStartBounds = {};
     static Vector2 scroll = {};
+    static std::map<std::string, bool> s_expanded;
 
     if (IsKeyPressed(KEY_M)) visible = !visible;
     if (!visible) return;
@@ -185,11 +190,36 @@ void Context::renderExampleMenu() {
         return;
     }
 
-    Rectangle contentArea = {bounds.x, bounds.y + kHeaderHeight, bounds.width,
-                             bounds.height - kHeaderHeight};
+    // collect categories from the registered example names ("Category/Name")
+    std::vector<std::string> categories;
+    std::vector<int> counts;
+    for (const auto& example : m_examples) {
+        const std::string& name = example->GetName();
+        size_t slash = name.find('/');
+        if (slash == std::string::npos) continue;
+        std::string category = name.substr(0, slash);
+        auto it = std::find(categories.begin(), categories.end(), category);
+        if (it == categories.end()) {
+            categories.push_back(category);
+            counts.push_back(1);
+            s_expanded.try_emplace(category, true);
+        } else {
+            ++counts[static_cast<size_t>(it - categories.begin())];
+        }
+    }
+
     float scrollBarW = (float)GuiGetStyle(SCROLLBAR, ARROWS_SIZE) + 8.f;
-    float btnW = contentArea.width - scrollBarW - kBtnPad * 2;
-    float contentH = m_examples.size() * (kBtnHeight + kBtnPad);
+    float btnW = bounds.width - scrollBarW - kBtnPad * 2;
+    float footerTop = bounds.y + bounds.height - kFooterH;
+
+    int totalRows = 0;
+    for (size_t c = 0; c < categories.size(); ++c) {
+        totalRows += 1 + (s_expanded[categories[c]] ? counts[c] : 0);
+    }
+
+    Rectangle contentArea = {bounds.x, bounds.y + kHeaderHeight, bounds.width,
+                             bounds.height - kHeaderHeight - kFooterH};
+    float contentH = totalRows * (kBtnHeight + kBtnPad);
     Rectangle content = {0, 0, btnW + kBtnPad,
                          std::max(contentH, contentArea.height)};
     Rectangle view = {};
@@ -201,19 +231,58 @@ void Context::renderExampleMenu() {
 
     float bx = bounds.x + kBtnPad + scroll.x;
     float by = bounds.y + kHeaderHeight + kBtnPad + scroll.y;
-    int i = 0;
-    for (const auto& example : m_examples) {
-        Rectangle btn = {bx, by + i * (kBtnHeight + kBtnPad), btnW, kBtnHeight};
-        bool active = (example.get() == m_cur_example);
-        if (active) GuiSetState(STATE_PRESSED);
-        if (GuiButton(btn, example->GetName().c_str())) {
-            m_cur_example = example.get();
+    int row = 0;
+    for (size_t c = 0; c < categories.size(); ++c) {
+        const std::string& category = categories[c];
+        bool expanded = s_expanded[category];
+
+        // category header: click to expand/collapse this group only
+        Rectangle hdr = {bx, by + row * (kBtnHeight + kBtnPad), btnW,
+                         kBtnHeight};
+        char hdrText[64];
+        snprintf(hdrText, sizeof(hdrText), "%s %s",
+                 expanded ? "#120#" : "#115#", category.c_str());
+        int prevAlign = GuiGetStyle(BUTTON, TEXT_ALIGNMENT);
+        GuiSetStyle(BUTTON, TEXT_ALIGNMENT, TEXT_ALIGN_LEFT);
+        if (GuiButton(hdr, hdrText)) {
+            s_expanded[category] = !expanded;
         }
-        if (active) GuiSetState(STATE_NORMAL);
-        i++;
+        GuiSetStyle(BUTTON, TEXT_ALIGNMENT, prevAlign);
+        ++row;
+
+        if (!expanded) continue;
+        for (const auto& example : m_examples) {
+            const std::string& name = example->GetName();
+            if (name.rfind(category + "/", 0) != 0) continue;
+            std::string label = name.substr(category.size() + 1);
+            Rectangle btn = {bx, by + row * (kBtnHeight + kBtnPad), btnW,
+                             kBtnHeight};
+            bool active = (example.get() == m_cur_example);
+            if (active) GuiSetState(STATE_PRESSED);
+            if (GuiButton(btn, label.c_str())) {
+                m_cur_example = example.get();
+            }
+            if (active) GuiSetState(STATE_NORMAL);
+            ++row;
+        }
     }
 
     EndScissorMode();
+
+    // uncategorized examples (e.g. RenderTest) stay outside the category
+    // list as an always-visible button
+    for (const auto& example : m_examples) {
+        const std::string& name = example->GetName();
+        if (name.find('/') != std::string::npos) continue;
+        Rectangle btn = {bounds.x + kBtnPad, footerTop + kBtnPad, btnW,
+                         kBtnHeight};
+        bool active = (example.get() == m_cur_example);
+        if (active) GuiSetState(STATE_PRESSED);
+        if (GuiButton(btn, name.c_str())) {
+            m_cur_example = example.get();
+        }
+        if (active) GuiSetState(STATE_NORMAL);
+    }
 
     GuiLabel({bounds.x + bounds.width - 16.f, bounds.y + bounds.height - 16.f,
               16.f, 16.f},
