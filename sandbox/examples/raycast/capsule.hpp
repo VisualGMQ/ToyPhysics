@@ -1,7 +1,7 @@
 #pragma once
+#include "toy_physics/lowlevel/algorithm.hpp"
 #include "example.hpp"
 #include "examples/raycast/util.hpp"
-#include "toy_physics/algorithm.hpp"
 
 class CapsuleRaycastExample : public IExample {
 public:

@@ -1,8 +1,7 @@
 #pragma once
 #include "example.hpp"
 #include "examples/sweep/util.hpp"
-#include "toy_physics/algorithm.hpp"
-#include "toy_physics/gjk.hpp"
+#include "toy_physics/lowlevel/algorithm.hpp"
 
 class CapsuleCapsuleSweepExample : public IExample {
 public:

@@ -2,6 +2,7 @@
 #include "example.hpp"
 #include "raygui.h"
 #include "raylib.h"
+#include "toy_physics/shape.hpp"
 #include <array>
 #include <memory>
 #include <vector>
@@ -34,6 +35,20 @@ public:
         m_examples.emplace_back(std::move(example));
     }
 
+    toy_physics::Shape* CreateShape(const toy_physics::BoxGeometry& geometry);
+    toy_physics::Shape* CreateShape(
+        const toy_physics::SphereGeometry& geometry);
+    toy_physics::Shape* CreateShape(
+        const toy_physics::CapsuleGeometry& geometry);
+    toy_physics::Shape* CreateShape(
+        const toy_physics::CylinderGeometry& geometry);
+    toy_physics::Shape* CreateShape(
+        const toy_physics::ConvexHullGeometry& geometry);
+
+    std::vector<std::unique_ptr<toy_physics::Shape>>& GetShapes();
+
+    [[nodiscard]] const Camera3D& GetCamera() const { return m_camera; }
+
     void DrawBox(Vector3 center, Vector3 rotation, Vector3 halfExtent,
                  Color color = WHITE) const;
     void DrawSphere(Vector3 center, Vector3 rotation, float radius,
@@ -43,8 +58,23 @@ public:
     void DrawCylinder(Vector3 center, Vector3 rotation, float height,
                       float radius, Color color = WHITE) const;
 
+    void DrawAABBFlat(const toy_physics::AABB& aabb, Color color) const;
+    void DrawAABBFlatWires(const toy_physics::AABB& aabb, Color color) const;
+
+    void DrawBoxFlat(Vector3 center, Vector3 rotation, Vector3 halfExtent,
+                     Color color) const;
+    void DrawSphereFlat(Vector3 center, Vector3 rotation, float radius,
+                        Color color) const;
+    void DrawCapsuleFlat(Vector3 center, Vector3 rotation, float height,
+                         float radius, Color color) const;
+    void DrawCylinderFlat(Vector3 center, Vector3 rotation, float height,
+                          float radius, Color color) const;
+
 private:
     static std::unique_ptr<Context> instance;
+
+    std::unique_ptr<toy_physics::ShapeFactory> m_shape_factory;
+    std::vector<std::unique_ptr<toy_physics::Shape>> m_shapes;
 
     void renderUpdate();
     void logicUpdate(float delta_time);
@@ -73,6 +103,9 @@ private:
     int m_loc_ambient_color = -1;
     int m_loc_specular_strength = -1;
     int m_loc_shininess = -1;
+    Shader m_flat_shader = {0};
+    int m_loc_flat_mvp = -1;
+    int m_loc_flat_color = -1;
 
     std::vector<std::unique_ptr<IExample>> m_examples;
     IExample* m_cur_example = nullptr;
@@ -81,7 +114,10 @@ private:
     bool isCameraEnable() const;
     void initTexture();
     void initLightingShader();
+    void initFlatShader();
     void loadModels();
+    void enableFlatShader(Color color) const;
+    void setFlatMvp() const;
 
     static constexpr std::array<int, 2> m_camera_modes = {
         CAMERA_FREE,

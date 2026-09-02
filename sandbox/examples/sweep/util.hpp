@@ -1,7 +1,7 @@
 #pragma once
+#include "toy_physics/lowlevel/gjk.hpp"
 #include "examples/nearest_points/util.hpp"
-#include "toy_physics/algorithm.hpp"
-#include "toy_physics/gjk.hpp"
+#include "toy_physics/lowlevel/algorithm.hpp"
 #include <array>
 #include <cstdio>
 

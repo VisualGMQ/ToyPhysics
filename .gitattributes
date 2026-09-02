@@ -1,0 +1,3 @@
+*.glsl text eol=lf
+*.data binary
+*.wasm binary

@@ -1,8 +1,8 @@
 #pragma once
+#include "toy_physics/lowlevel/algorithm.hpp"
+#include "toy_physics/lowlevel/epa.hpp"
 #include "example.hpp"
 #include "examples/nearest_points/util.hpp"
-#include "toy_physics/algorithm.hpp"
-#include "toy_physics/epa.hpp"
 
 class MtdTetrahedronsExample : public IExample {
 public:

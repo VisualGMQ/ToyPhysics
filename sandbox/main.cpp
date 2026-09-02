@@ -1,37 +1,46 @@
 #include "context.hpp"
-#include "examples/render_test/render_test.hpp"
-#include "examples/nearest_points/sphere.hpp"
-#include "examples/nearest_points/capsule.hpp"
-#include "examples/nearest_points/cylinder.hpp"
-#include "examples/nearest_points/segment.hpp"
-#include "examples/nearest_points/obb.hpp"
-#include "examples/nearest_points/tetrahedron.hpp"
-#include "examples/nearest_points/triangle.hpp"
-#include "examples/nearest_points/segseg.hpp"
-#include "examples/nearest_points/lineline.hpp"
+#include "examples/bp/bvh.hpp"
+#include "examples/bp/inc_bvh.hpp"
+#include "examples/bp/interacte_bvh.hpp"
+#include "examples/bv/box.hpp"
+#include "examples/bv/capsule.hpp"
+#include "examples/bv/convex.hpp"
+#include "examples/bv/cylinder.hpp"
+#include "examples/bv/sphere.hpp"
+#include "examples/bv/triangle.hpp"
 #include "examples/gjk/gjk_tetrahedrons.hpp"
 #include "examples/mtd/mtd_tetrahedrons.hpp"
-#include "examples/raycast/sphere.hpp"
+#include "examples/nearest_points/capsule.hpp"
+#include "examples/nearest_points/cylinder.hpp"
+#include "examples/nearest_points/lineline.hpp"
+#include "examples/nearest_points/obb.hpp"
+#include "examples/nearest_points/segment.hpp"
+#include "examples/nearest_points/segseg.hpp"
+#include "examples/nearest_points/sphere.hpp"
+#include "examples/nearest_points/tetrahedron.hpp"
+#include "examples/nearest_points/triangle.hpp"
 #include "examples/raycast/aabb.hpp"
+#include "examples/raycast/capsule.hpp"
+#include "examples/raycast/convex.hpp"
+#include "examples/raycast/cylinder.hpp"
 #include "examples/raycast/obb.hpp"
 #include "examples/raycast/plane.hpp"
+#include "examples/raycast/sphere.hpp"
 #include "examples/raycast/triangle.hpp"
-#include "examples/raycast/capsule.hpp"
-#include "examples/raycast/cylinder.hpp"
-#include "examples/raycast/convex.hpp"
+#include "examples/render_test/render_test.hpp"
+#include "examples/sweep/capsule_capsule.hpp"
+#include "examples/sweep/capsule_convex.hpp"
+#include "examples/sweep/capsule_cylinder.hpp"
+#include "examples/sweep/capsule_obb.hpp"
+#include "examples/sweep/convex_convex.hpp"
+#include "examples/sweep/cylinder_convex.hpp"
+#include "examples/sweep/cylinder_cylinder.hpp"
+#include "examples/sweep/sphere_capsule.hpp"
+#include "examples/sweep/sphere_convex.hpp"
+#include "examples/sweep/sphere_cylinder.hpp"
 #include "examples/sweep/sphere_obb.hpp"
 #include "examples/sweep/sphere_sphere.hpp"
-#include "examples/sweep/sphere_capsule.hpp"
-#include "examples/sweep/sphere_cylinder.hpp"
 #include "examples/sweep/sphere_triangle.hpp"
-#include "examples/sweep/sphere_convex.hpp"
-#include "examples/sweep/capsule_capsule.hpp"
-#include "examples/sweep/capsule_obb.hpp"
-#include "examples/sweep/capsule_cylinder.hpp"
-#include "examples/sweep/capsule_convex.hpp"
-#include "examples/sweep/cylinder_cylinder.hpp"
-#include "examples/sweep/cylinder_convex.hpp"
-#include "examples/sweep/convex_convex.hpp"
 
 #ifdef TOY_PHYSICS_PLATFORM_WEB
 #include "emscripten.h"
@@ -73,6 +82,15 @@ void registerExamples(Context& ctx) {
     REGISTER_EXAMPLE(CylinderCylinderSweep, "Sweep/Cylinder Cylinder");
     REGISTER_EXAMPLE(CylinderConvexSweep, "Sweep/Cylinder Convex");
     REGISTER_EXAMPLE(ConvexConvexSweep, "Sweep/Convex Convex");
+    REGISTER_EXAMPLE(BoxBV, "BV/Box");
+    REGISTER_EXAMPLE(SphereBV, "BV/Sphere");
+    REGISTER_EXAMPLE(CapsuleBV, "BV/Capsule");
+    REGISTER_EXAMPLE(CylinderBV, "BV/Cylinder");
+    REGISTER_EXAMPLE(ConvexBV, "BV/Convex");
+    REGISTER_EXAMPLE(TriangleBV, "BV/Triangle");
+    REGISTER_EXAMPLE(Bvh, "BP/BVH");
+    REGISTER_EXAMPLE(InteracteBvh, "BP/Interacte BVH");
+    REGISTER_EXAMPLE(IncBvh, "BP/Incremental BVH");
     REGISTER_EXAMPLE(RenderTest, "RenderTest");
 }
 

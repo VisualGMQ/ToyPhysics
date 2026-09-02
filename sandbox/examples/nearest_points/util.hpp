@@ -1,9 +1,9 @@
 #pragma once
-#include <cstdio>
+#include "toy_physics/common/math.hpp"
+#include "raygui.h"
 #include "raylib.h"
 #include "raymath.h"
-#include "raygui.h"
-#include "toy_physics/math.hpp"
+#include <cstdio>
 
 namespace {
 

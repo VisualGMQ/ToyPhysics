@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 4.0)
 
 project(ToyPhysics)
 
+enable_testing()
+
 option(TOYPHYSICS_BUILD_SANDBOX "build toy physics sandbox" OFF)
 option(TOYPHYSICS_BUILD_TEST "build toy physics unittests" OFF)
 option(TOYPHYSICS_USE_DOUBLE "use double floating-point" OFF)

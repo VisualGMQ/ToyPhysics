@@ -8,10 +8,10 @@
 #include <fstream>
 #include <map>
 
-#include "toy_physics/log.hpp"
+#include "toy_physics/common/log.hpp"
 
-constexpr float WINDOW_INIT_W = 1024;
-constexpr float WINDOW_INIT_H = 720;
+constexpr float WINDOW_INIT_W = 1960;
+constexpr float WINDOW_INIT_H = 1280;
 const char* WINDOW_TITLE = "ToyPhysics Sandbox";
 
 std::unique_ptr<Context> Context::instance;
@@ -24,14 +24,16 @@ Context::~Context() {}
 
 void Context::Initialize() {
     m_should_exit = false;
+    m_shape_factory = std::make_unique<toy_physics::ShapeFactory>();
 
     InitWindow(WINDOW_INIT_W, WINDOW_INIT_H, WINDOW_TITLE);
     SetWindowState(FLAG_WINDOW_RESIZABLE);
-    SetTargetFPS(120);
+    SetTargetFPS(60);
     GuiLoadStyleDefault();
     GuiSetStyle(DEFAULT, TEXT_SIZE, 20);
     initTexture();
     initLightingShader();
+    initFlatShader();
     loadModels();
     initCamera();
 }
@@ -59,8 +61,8 @@ void Context::initTexture() {
 
 void Context::initLightingShader() {
 #ifdef TOY_PHYSICS_PLATFORM_WEB
-    m_lighting_shader =
-        LoadShader("sandbox/assets/vert_web.glsl", "sandbox/assets/frag_web.glsl");
+    m_lighting_shader = LoadShader("sandbox/assets/vert_web.glsl",
+                                   "sandbox/assets/frag_web.glsl");
 #else
     m_lighting_shader =
         LoadShader("sandbox/assets/vert.glsl", "sandbox/assets/frag.glsl");
@@ -73,6 +75,19 @@ void Context::initLightingShader() {
     m_loc_specular_strength =
         GetShaderLocation(m_lighting_shader, "specularStrength");
     m_loc_shininess = GetShaderLocation(m_lighting_shader, "shininess");
+}
+
+void Context::initFlatShader() {
+#ifdef TOY_PHYSICS_PLATFORM_WEB
+    m_flat_shader = LoadShader("sandbox/assets/vert_flat_web.glsl",
+                               "sandbox/assets/frag_flat_web.glsl");
+#else
+    m_flat_shader = LoadShader("sandbox/assets/vert_flat.glsl",
+                               "sandbox/assets/frag_flat.glsl");
+#endif
+
+    m_loc_flat_mvp = GetShaderLocation(m_flat_shader, "mvp");
+    m_loc_flat_color = GetShaderLocation(m_flat_shader, "uColor");
 }
 
 void Context::loadModels() {
@@ -317,12 +332,15 @@ void Context::Shutdown() {
 
     m_examples.clear();
     m_cur_example = nullptr;
+    m_shapes.clear();
+    m_shape_factory.reset();
 
     UnloadModel(m_model_box);
     UnloadModel(m_model_sphere);
     UnloadModel(m_model_cylinder);
     UnloadTexture(m_color_texture);
     UnloadShader(m_lighting_shader);
+    UnloadShader(m_flat_shader);
     CloseWindow();
 }
 
@@ -446,6 +464,114 @@ void Context::DrawCapsule(Vector3 center, Vector3 rotation, float height,
     rlPopMatrix();
 }
 
+void Context::enableFlatShader(Color color) const {
+    BeginShaderMode(m_flat_shader);
+    rlEnableColorBlend();
+    rlSetBlendMode(RL_BLEND_ALPHA);
+    float color4[4] = {color.r / 255.f, color.g / 255.f, color.b / 255.f,
+                       color.a / 255.f};
+    SetShaderValue(m_flat_shader, m_loc_flat_color, color4,
+                   SHADER_UNIFORM_VEC4);
+}
+
+void Context::setFlatMvp() const {
+    Matrix mvp =
+        MatrixMultiply(rlGetMatrixModelview(), rlGetMatrixProjection());
+    SetShaderValueMatrix(m_flat_shader, m_loc_flat_mvp, mvp);
+}
+
+void Context::DrawAABBFlat(const toy_physics::AABB& aabb, Color color) const {
+    Vector3 center = {(aabb.m_min.x() + aabb.m_max.x()) * 0.5f,
+                      (aabb.m_min.y() + aabb.m_max.y()) * 0.5f,
+                      (aabb.m_min.z() + aabb.m_max.z()) * 0.5f};
+    Vector3 size = {aabb.m_max.x() - aabb.m_min.x(),
+                    aabb.m_max.y() - aabb.m_min.y(),
+                    aabb.m_max.z() - aabb.m_min.z()};
+
+    enableFlatShader(color);
+    setFlatMvp();
+    rlDisableDepthMask();
+    DrawCubeV(center, size, WHITE);
+    rlEnableDepthMask();
+    EndShaderMode();
+}
+
+void Context::DrawAABBFlatWires(const toy_physics::AABB& aabb,
+                                Color color) const {
+    Vector3 center = {(aabb.m_min.x() + aabb.m_max.x()) * 0.5f,
+                      (aabb.m_min.y() + aabb.m_max.y()) * 0.5f,
+                      (aabb.m_min.z() + aabb.m_max.z()) * 0.5f};
+    Vector3 size = {aabb.m_max.x() - aabb.m_min.x(),
+                    aabb.m_max.y() - aabb.m_min.y(),
+                    aabb.m_max.z() - aabb.m_min.z()};
+
+    enableFlatShader(color);
+    setFlatMvp();
+    DrawCubeWiresV(center, size, WHITE);
+    EndShaderMode();
+}
+
+void Context::DrawBoxFlat(Vector3 center, Vector3 rotation, Vector3 halfExtent,
+                          Color color) const {
+    enableFlatShader(color);
+    rlPushMatrix();
+    rlTranslatef(center.x, center.y, center.z);
+    rlRotatef(rotation.x, 1.0f, 0.0f, 0.0f);
+    rlRotatef(rotation.y, 0.0f, 1.0f, 0.0f);
+    rlRotatef(rotation.z, 0.0f, 0.0f, 1.0f);
+    setFlatMvp();
+    DrawCubeV(
+        Vector3{0, 0, 0},
+        Vector3{halfExtent.x * 2.0f, halfExtent.y * 2.0f, halfExtent.z * 2.0f},
+        WHITE);
+    rlPopMatrix();
+    EndShaderMode();
+}
+
+void Context::DrawSphereFlat(Vector3 center, Vector3 rotation, float radius,
+                             Color color) const {
+    enableFlatShader(color);
+    setFlatMvp();
+    ::DrawSphere(center, radius, WHITE);
+    EndShaderMode();
+}
+
+void Context::DrawCylinderFlat(Vector3 center, Vector3 rotation, float height,
+                               float radius, Color color) const {
+    enableFlatShader(color);
+    rlPushMatrix();
+    rlTranslatef(center.x, center.y, center.z);
+    rlRotatef(rotation.x, 1.0f, 0.0f, 0.0f);
+    rlRotatef(rotation.y, 0.0f, 1.0f, 0.0f);
+    rlRotatef(rotation.z, 0.0f, 0.0f, 1.0f);
+    setFlatMvp();
+    // raylib's DrawCylinder spans [0, height] from its position, so shift
+    // the base down by half the height to keep it centered
+    ::DrawCylinder(Vector3{0, -height * 0.5f, 0}, radius, radius, height, 24,
+                   WHITE);
+    rlPopMatrix();
+    EndShaderMode();
+}
+
+void Context::DrawCapsuleFlat(Vector3 center, Vector3 rotation, float height,
+                              float radius, Color color) const {
+    enableFlatShader(color);
+    rlPushMatrix();
+    rlTranslatef(center.x, center.y, center.z);
+    rlRotatef(rotation.x, 1.0f, 0.0f, 0.0f);
+    rlRotatef(rotation.y, 0.0f, 1.0f, 0.0f);
+    rlRotatef(rotation.z, 0.0f, 0.0f, 1.0f);
+    setFlatMvp();
+    // mirror the lit capsule construction: centered cylinder section plus
+    // one sphere at each end
+    ::DrawCylinder(Vector3{0, -height * 0.5f, 0}, radius, radius, height, 24,
+                   WHITE);
+    ::DrawSphere(Vector3{0, -height * 0.5f, 0}, radius, WHITE);
+    ::DrawSphere(Vector3{0, height * 0.5f, 0}, radius, WHITE);
+    rlPopMatrix();
+    EndShaderMode();
+}
+
 void Context::logicUpdate(float delta_time) {
     handleToggleCamera();
     if (isCameraEnable()) {
@@ -470,6 +596,35 @@ void Context::Update() {
         logicUpdate(GetFrameTime());
         renderUpdate();
     }
+}
+
+toy_physics::Shape* Context::CreateShape(
+    const toy_physics::BoxGeometry& geometry) {
+    return m_shape_factory->Create(geometry);
+}
+
+toy_physics::Shape* Context::CreateShape(
+    const toy_physics::SphereGeometry& geometry) {
+    return m_shape_factory->Create(geometry);
+}
+
+toy_physics::Shape* Context::CreateShape(
+    const toy_physics::CapsuleGeometry& geometry) {
+    return m_shape_factory->Create(geometry);
+}
+
+toy_physics::Shape* Context::CreateShape(
+    const toy_physics::CylinderGeometry& geometry) {
+    return m_shape_factory->Create(geometry);
+}
+
+toy_physics::Shape* Context::CreateShape(
+    const toy_physics::ConvexHullGeometry& geometry) {
+    return m_shape_factory->Create(geometry);
+}
+
+std::vector<std::unique_ptr<toy_physics::Shape>>& Context::GetShapes() {
+    return m_shapes;
 }
 
 bool Context::ShouldExit() const {

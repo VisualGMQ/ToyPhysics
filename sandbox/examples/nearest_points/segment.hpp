@@ -1,7 +1,7 @@
 #pragma once
+#include "toy_physics/lowlevel/algorithm.hpp"
 #include "example.hpp"
 #include "examples/nearest_points/util.hpp"
-#include "toy_physics/algorithm.hpp"
 
 class SegmentNearestPointExample : public IExample {
 public:
