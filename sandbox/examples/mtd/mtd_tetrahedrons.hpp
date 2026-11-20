@@ -1,6 +1,5 @@
 #pragma once
 #include "toy_physics/lowlevel/algorithm.hpp"
-#include "toy_physics/lowlevel/epa.hpp"
 #include "example.hpp"
 #include "examples/nearest_points/util.hpp"
 
@@ -174,17 +173,17 @@ inline void MtdTetrahedronsExample::OnRender2D(float delta_time) {
         tv1[i] = ToVec3(w1[i]);
         tv2[i] = ToVec3(w2[i]);
     }
-    toy_physics::PolygonSupportFunction ps1(tv1), ps2(tv2);
+    toy_physics::MTD mtd;
     m_has_points = false;
-    m_hit =
-        toy_physics::CalcPenetrationDepth(ps1, ps2, m_penetration, m_p1, m_p2,
-                                          toy_physics::kDefaultRealTolerance);
-    m_has_points = m_hit;
+    m_hit = toy_physics::GetTetrahedronsMTD(tv1, tv2, mtd, &m_p1, &m_p2);
 
     // Translate tetrahedron 1 along the MTD so the two become separated
     if (m_hit) {
+        m_penetration = mtd.m_dir * mtd.m_len;
+        m_has_points = true;
         m_c1_moved = Vector3Add(m_c1, FromVec3(-m_penetration * 1.001f));
     } else {
+        m_penetration = toy_physics::Vector3::Zero();
         m_c1_moved = m_c1;
     }
 

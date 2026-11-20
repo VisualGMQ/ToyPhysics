@@ -16,7 +16,7 @@ static constexpr real kEPARelError2 = 1e-6;
 
 // support functions expect a unit direction; normalize the search
 // direction (with a fallback for the zero vector) before the query
-static Vector3 NormalizeSupportDir(Vector3 v) {
+Vector3 normalizeSupportDir(Vector3 v) {
     real len = v.norm();
     if (len <= kREAL_EPSILON) {
         return Vector3::UnitX();
@@ -67,7 +67,7 @@ int IsOriginInTetrahedron(const Vector3& p1, const Vector3& p2,
 }
 
 bool CalcPenetrationDepth(GJK& gjk,
-                          const toy_physics::SupportFunction& support1,
+                          const SupportFunction& support1,
                           const SupportFunction& support2,
                           Vector3& out_penetration, Vector3& out_p1,
                           Vector3& out_p2, real tolerance) {
@@ -293,7 +293,7 @@ bool CalcPenetrationDepth(const SupportFunction& support1,
     real delta;
 
     do {
-        Vector3 u = NormalizeSupportDir(v);
+        Vector3 u = normalizeSupportDir(v);
         p1 = support1(-u);
         p2 = support2(u);
         w = p1 - p2;

@@ -122,36 +122,55 @@ bool IsOBBConvexIntersect(Vector3 center, std::span<const Vector3, 3> axises,
                           Vector3 half_extent, std::span<const Vector3> convex);
 
 // MTD
-bool GetSpheresMTD(Vector3 c1, real r1, Vector3 c2, real r2, Vector3* mtd);
+bool GetSpheresMTD(Vector3 c1, real r1, Vector3 c2, real r2, Vector3* mtd,
+                   Vector3* out_witness1 = nullptr,
+                   Vector3* out_witness2 = nullptr);
 bool GetOBBsMTD(Vector3 center1, std::span<const Vector3, 3> axises1,
                 Vector3 half_extent1, Vector3 center2,
                 std::span<const Vector3, 3> axises2, Vector3 half_extent2,
-                Vector3* mtd);
+                Vector3* mtd, Vector3* out_witness1 = nullptr,
+                Vector3* out_witness2 = nullptr);
 bool GetSphereOBBMTD(Vector3 c, real r, Vector3 center,
                      std::span<const Vector3, 3> axises, Vector3 half_extent,
-                     Vector3* mtd);
+                     Vector3* mtd, Vector3* out_witness1 = nullptr,
+                     Vector3* out_witness2 = nullptr);
 bool GetSphereTetrahedronMTD(Vector3 c, real r, std::span<const Vector3, 4> pts,
-                             Vector3* mtd);
+                             Vector3* mtd, Vector3* out_witness1 = nullptr,
+                             Vector3* out_witness2 = nullptr);
 bool GetSphereCapsuleMTD(Vector3 c, real r, Vector3 center, Vector3 axis,
-                         real half_height, real radius, Vector3* mtd);
+                         real half_height, real radius, Vector3* mtd,
+                         Vector3* out_witness1 = nullptr,
+                         Vector3* out_witness2 = nullptr);
 bool GetTetrahedronsMTD(std::span<const Vector3, 4> pts1,
-                        std::span<const Vector3, 4> pts2, MTD& mtd);
+                        std::span<const Vector3, 4> pts2, MTD& mtd,
+                        Vector3* out_witness1 = nullptr,
+                        Vector3* out_witness2 = nullptr);
 bool GetOBBTetrahedronMTD(Vector3 center, std::span<const Vector3, 3> axises,
                           Vector3 half_extent, Vector3 p1, Vector3 p2,
-                          Vector3 p3, Vector3 p4, Vector3* mtd);
+                          Vector3 p3, Vector3 p4, Vector3* mtd,
+                          Vector3* out_witness1 = nullptr,
+                          Vector3* out_witness2 = nullptr);
 bool GetConvexesMTD(std::span<const Vector3> pts1,
-                    std::span<const Vector3> pts2, Vector3* mtd);
+                    std::span<const Vector3> pts2, Vector3* mtd,
+                    Vector3* out_witness1 = nullptr,
+                    Vector3* out_witness2 = nullptr);
 bool GetTetrahedronConvexMTD(Vector3 p1, Vector3 p2, Vector3 p3, Vector3 p4,
-                             std::span<const Vector3> convex, Vector3* mtd);
+                             std::span<const Vector3> convex, Vector3* mtd,
+                             Vector3* out_witness1 = nullptr,
+                             Vector3* out_witness2 = nullptr);
 bool GetCapsuleTetrahedronMTD(Vector3 center, Vector3 axis, real half_height,
                               real radius, Vector3 p1, Vector3 p2, Vector3 p3,
-                              Vector3 p4, Vector3* mtd);
+                              Vector3 p4, Vector3* mtd,
+                              Vector3* out_witness1 = nullptr,
+                              Vector3* out_witness2 = nullptr);
 bool GetCapsuleConvexMTD(Vector3 center, Vector3 axis, real half_height,
                          real radius, std::span<const Vector3> convex,
-                         Vector3* mtd);
+                         Vector3* mtd, Vector3* out_witness1 = nullptr,
+                         Vector3* out_witness2 = nullptr);
 bool GetOBBConvexMTD(Vector3 center, std::span<const Vector3, 3> axises,
                      Vector3 half_extent, std::span<const Vector3> convex,
-                     Vector3* mtd);
+                     Vector3* mtd, Vector3* out_witness1 = nullptr,
+                     Vector3* out_witness2 = nullptr);
 
 // Raycast
 struct RaycastHit {

@@ -7,6 +7,11 @@ struct SupportFunction;
 class GJK;
 
 /**
+ * Tolerance used by penetration-depth queries.
+ */
+static constexpr real kPenetrationTolerance = kREAL_EPSILON;
+
+/**
  * Check origin in tetrahedron
  *
  * @return the obsolete point index, start with 1. 0 means check success
@@ -18,12 +23,13 @@ bool CalcPenetrationDepth(GJK& gjk,
                           const toy_physics::SupportFunction& support1,
                           const SupportFunction& support2,
                           Vector3& out_penetration, Vector3& out_p1,
-                          Vector3& out_p2, real tolerance = 1e-3);
+                          Vector3& out_p2,
+                          real tolerance = kPenetrationTolerance);
 
 [[nodiscard]] bool CalcPenetrationDepth(const SupportFunction& support1,
                                         const SupportFunction& support2,
                                         Vector3& out_penetration,
                                         Vector3& out_p1, Vector3& out_p2,
-                                        real tolerance = 1e-3);
+                                        real tolerance = kPenetrationTolerance);
 
 }  // namespace toy_physics

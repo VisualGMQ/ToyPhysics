@@ -37,4 +37,4 @@ it will generate to doxygen-gen.
 
 ## Code Read Note
 
-`sandbox/` is wrote in AI completely. DON'T read them.
+`sandbox/` is **wrote in AI completely. DON'T read them!**

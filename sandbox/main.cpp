@@ -9,6 +9,7 @@
 #include "examples/bv/sphere.hpp"
 #include "examples/bv/triangle.hpp"
 #include "examples/gjk/gjk_tetrahedrons.hpp"
+#include "examples/manifold/manifold_examples.hpp"
 #include "examples/mtd/mtd_tetrahedrons.hpp"
 #include "examples/nearest_points/capsule.hpp"
 #include "examples/nearest_points/cylinder.hpp"
@@ -61,6 +62,16 @@ void registerExamples(Context& ctx) {
     REGISTER_EXAMPLE(LineLineNearestPoint, "NearestPoint/LineLine");
     REGISTER_EXAMPLE(GjkTetrahedrons, "NearestPoint/GJK Tetrahedrons");
     REGISTER_EXAMPLE(MtdTetrahedrons, "MTD/Tetrahedrons");
+    REGISTER_EXAMPLE(ManifoldOBBOBB, "Manifold/OBB & OBB");
+    REGISTER_EXAMPLE(ManifoldOBBSphere, "Manifold/OBB & Sphere");
+    REGISTER_EXAMPLE(ManifoldSphereSphere, "Manifold/Sphere & Sphere");
+    REGISTER_EXAMPLE(ManifoldSphereCapsule, "Manifold/Sphere & Capsule");
+    REGISTER_EXAMPLE(ManifoldCapsuleCapsule, "Manifold/Capsule & Capsule");
+    REGISTER_EXAMPLE(ManifoldCylinderCylinder, "Manifold/Cylinder & Cylinder");
+    REGISTER_EXAMPLE(ManifoldCylinderCapsule, "Manifold/Cylinder & Capsule");
+    REGISTER_EXAMPLE(ManifoldCapsuleConvex, "Manifold/Capsule & Convex");
+    REGISTER_EXAMPLE(ManifoldConvexConvex, "Manifold/Convex & Convex");
+    REGISTER_EXAMPLE(ManifoldConvexCylinder, "Manifold/Convex & Cylinder");
     REGISTER_EXAMPLE(SphereRaycast, "Raycast/Sphere");
     REGISTER_EXAMPLE(AABBRaycast, "Raycast/AABB");
     REGISTER_EXAMPLE(OBBRaycast, "Raycast/OBB");

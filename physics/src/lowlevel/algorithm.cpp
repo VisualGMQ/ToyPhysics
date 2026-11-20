@@ -433,7 +433,7 @@ bool IsTetrahedronsIntersect(std::span<const Vector3, 4> pts1,
 bool GetOBBsMTD(Vector3 center1, std::span<const Vector3, 3> axises1,
                 Vector3 half_extent1, Vector3 center2,
                 std::span<const Vector3, 3> axises2, Vector3 half_extent2,
-                Vector3* mtd) {
+                Vector3* mtd, Vector3* out_witness1, Vector3* out_witness2) {
     std::array<Vector3, 15> proj_axises;
     size_t count = 0;
 
@@ -477,13 +477,25 @@ bool GetOBBsMTD(Vector3 center1, std::span<const Vector3, 3> axises1,
         }
     }
 
-    if (mtd) *mtd = best_dir * min_penetration;
+    if (mtd) {
+        *mtd = best_dir * min_penetration;
+    }
+
+    if (out_witness1) {
+        *out_witness1 =
+            GetOBBSupportPoint(center1, axises1, half_extent1, best_dir);
+    }
+    if (out_witness2) {
+        *out_witness2 =
+            GetOBBSupportPoint(center2, axises2, half_extent2, -best_dir);
+    }
     return true;
 }
 
 bool GetSphereOBBMTD(Vector3 c, real r, Vector3 center,
                      std::span<const Vector3, 3> axises, Vector3 half_extent,
-                     Vector3* mtd) {
+                     Vector3* mtd, Vector3* out_witness1,
+                     Vector3* out_witness2) {
     Vector3 nearest = GetOBBNearestPoint(c, center, axises, half_extent);
     Vector3 d = nearest - c;
     real dist = d.squaredNorm();
@@ -505,19 +517,37 @@ bool GetSphereOBBMTD(Vector3 c, real r, Vector3 center,
                 best_dir = -axises[i];
             }
         }
-        if (mtd) *mtd = best_dir * min_escape;
+        if (mtd) {
+            *mtd = best_dir * min_escape;
+        }
+        if (out_witness1) {
+            *out_witness1 = c - best_dir * r;
+        }
+        if (out_witness2) {
+            *out_witness2 = c + best_dir * min_escape;
+        }
         return true;
     }
 
     dist = std::sqrt(dist);
     if (dist >= r) return false;
 
-    if (mtd) *mtd = d / dist * r;
+    Vector3 unit = d / dist;
+    if (mtd) {
+        *mtd = unit * r;
+    }
+    if (out_witness1) {
+        *out_witness1 = c + unit * r;
+    }
+    if (out_witness2) {
+        *out_witness2 = nearest;
+    }
     return true;
 }
 
 bool GetSphereTetrahedronMTD(Vector3 c, real r, std::span<const Vector3, 4> pts,
-                             Vector3* mtd) {
+                             Vector3* mtd, Vector3* out_witness1,
+                             Vector3* out_witness2) {
     Vector3 nearest = GetTetrahedronNearestPoint(c, pts);
     Vector3 d = nearest - c;
     real dist = d.squaredNorm();
@@ -543,19 +573,38 @@ bool GetSphereTetrahedronMTD(Vector3 c, real r, std::span<const Vector3, 4> pts,
                 best_dir = -n * signed_dist;
             }
         }
-        if (mtd) *mtd = best_dir.normalized() * (min_escape + r);
+        Vector3 dir = best_dir.normalized();
+        if (mtd) {
+            *mtd = dir * (min_escape + r);
+        }
+        if (out_witness1) {
+            *out_witness1 = c - dir * r;
+        }
+        if (out_witness2) {
+            *out_witness2 = c + dir * min_escape;
+        }
         return true;
     }
 
     dist = std::sqrt(dist);
     if (dist >= r) return false;
 
-    if (mtd) *mtd = d / dist * r;
+    Vector3 unit = d / dist;
+    if (mtd) {
+        *mtd = unit * r;
+    }
+    if (out_witness1) {
+        *out_witness1 = c + unit * r;
+    }
+    if (out_witness2) {
+        *out_witness2 = nearest;
+    }
     return true;
 }
 
 bool GetSphereCapsuleMTD(Vector3 c, real r, Vector3 center, Vector3 axis,
-                         real half_height, real radius, Vector3* mtd) {
+                         real half_height, real radius, Vector3* mtd,
+                         Vector3* out_witness1, Vector3* out_witness2) {
     Vector3 seg = GetSegmentNearestPoint(c, center - axis * half_height,
                                          center + axis * half_height);
     Vector3 d = seg - c;
@@ -569,8 +618,15 @@ bool GetSphereCapsuleMTD(Vector3 c, real r, Vector3 center, Vector3 axis,
         if (esc.squaredNorm() < std::numeric_limits<real>::epsilon()) {
             esc = axis.cross(Vector3::UnitY());
         }
+        Vector3 dir = esc.normalized();
         if (mtd) {
-            *mtd = esc.normalized() * total_r;
+            *mtd = dir * total_r;
+        }
+        if (out_witness1) {
+            *out_witness1 = c - dir * r;
+        }
+        if (out_witness2) {
+            *out_witness2 = seg + dir * radius;
         }
         return true;
     }
@@ -580,13 +636,21 @@ bool GetSphereCapsuleMTD(Vector3 c, real r, Vector3 center, Vector3 axis,
         return false;
     }
 
+    Vector3 unit = d / dist;
     if (mtd) {
-        *mtd = d / dist * total_r;
+        *mtd = unit * total_r;
+    }
+    if (out_witness1) {
+        *out_witness1 = c + unit * r;
+    }
+    if (out_witness2) {
+        *out_witness2 = seg - unit * radius;
     }
     return true;
 }
 
-bool GetSpheresMTD(Vector3 c1, real r1, Vector3 c2, real r2, Vector3* mtd) {
+bool GetSpheresMTD(Vector3 c1, real r1, Vector3 c2, real r2, Vector3* mtd,
+                   Vector3* out_witness1, Vector3* out_witness2) {
     Vector3 d = c2 - c1;
     real squared_dist = d.squaredNorm();
     real r = r1 + r2;
@@ -596,13 +660,20 @@ bool GetSpheresMTD(Vector3 c1, real r1, Vector3 c2, real r2, Vector3* mtd) {
 
     real dist = std::sqrt(squared_dist);
 
+    // two spheres' center overlapped, choose a direction casually
+    Vector3 unit = Vector3::UnitX();
+    if (dist > std::numeric_limits<real>::epsilon()) {
+        unit = d / dist;
+    }
+
     if (mtd) {
-        // two circle center overlapped, choose a direction casually
-        if (std::abs(dist) < std::numeric_limits<real>::epsilon()) {
-            *mtd = Vector3::UnitX() * r;
-        } else {
-            *mtd = d / dist * r;
-        }
+        *mtd = unit * r;
+    }
+    if (out_witness1) {
+        *out_witness1 = c1 + unit * r1;
+    }
+    if (out_witness2) {
+        *out_witness2 = c2 - unit * r2;
     }
 
     return true;
@@ -1150,13 +1221,14 @@ bool IsLineAABBIntersect(const Ray& ray, real t0, real t1, Vector3 center,
 }
 
 bool GetTetrahedronsMTD(std::span<const Vector3, 4> pts1,
-                        std::span<const Vector3, 4> pts2, MTD& mtd) {
+                        std::span<const Vector3, 4> pts2, MTD& mtd,
+                        Vector3* out_witness1, Vector3* out_witness2) {
     PolygonSupportFunction s1{pts1};
     PolygonSupportFunction s2{pts2};
 
     Vector3 penetration, p1, p2;
     if (!CalcPenetrationDepth(s1, s2, penetration, p1, p2,
-                              kDefaultRealTolerance)) {
+                              kPenetrationTolerance)) {
         return false;
     }
 
@@ -1165,19 +1237,27 @@ bool GetTetrahedronsMTD(std::span<const Vector3, 4> pts1,
         return false;
     }
     mtd.m_dir = penetration / mtd.m_len;
+
+    if (out_witness1) {
+        *out_witness1 = p1;
+    }
+    if (out_witness2) {
+        *out_witness2 = p2;
+    }
     return true;
 }
 
 bool GetOBBTetrahedronMTD(Vector3 center, std::span<const Vector3, 3> axises,
                           Vector3 half_extent, Vector3 p1, Vector3 p2,
-                          Vector3 p3, Vector3 p4, Vector3* mtd) {
+                          Vector3 p3, Vector3 p4, Vector3* mtd,
+                          Vector3* out_witness1, Vector3* out_witness2) {
     OBBSupportFunction s1{center, axises, half_extent};
     std::array<Vector3, 4> tv = {p1, p2, p3, p4};
     PolygonSupportFunction s2{std::span<const Vector3>(tv)};
 
     Vector3 penetration, wp1, wp2;
     if (!CalcPenetrationDepth(s1, s2, penetration, wp1, wp2,
-                              kDefaultRealTolerance)) {
+                              kPenetrationTolerance)) {
         return false;
     }
     if (penetration.norm() <= 0) {
@@ -1185,18 +1265,25 @@ bool GetOBBTetrahedronMTD(Vector3 center, std::span<const Vector3, 3> axises,
     }
     if (mtd) {
         *mtd = penetration;
+    }
+    if (out_witness1) {
+        *out_witness1 = wp1;
+    }
+    if (out_witness2) {
+        *out_witness2 = wp2;
     }
     return true;
 }
 
 bool GetConvexesMTD(std::span<const Vector3> pts1,
-                    std::span<const Vector3> pts2, Vector3* mtd) {
+                    std::span<const Vector3> pts2, Vector3* mtd,
+                    Vector3* out_witness1, Vector3* out_witness2) {
     PolygonSupportFunction s1(pts1);
     PolygonSupportFunction s2(pts2);
 
     Vector3 penetration, p1, p2;
     if (!CalcPenetrationDepth(s1, s2, penetration, p1, p2,
-                              kDefaultRealTolerance)) {
+                              kPenetrationTolerance)) {
         return false;
     }
     if (penetration.norm() <= 0) {
@@ -1205,18 +1292,25 @@ bool GetConvexesMTD(std::span<const Vector3> pts1,
     if (mtd) {
         *mtd = penetration;
     }
+    if (out_witness1) {
+        *out_witness1 = p1;
+    }
+    if (out_witness2) {
+        *out_witness2 = p2;
+    }
     return true;
 }
 
 bool GetTetrahedronConvexMTD(Vector3 p1, Vector3 p2, Vector3 p3, Vector3 p4,
-                             std::span<const Vector3> convex, Vector3* mtd) {
+                             std::span<const Vector3> convex, Vector3* mtd,
+                             Vector3* out_witness1, Vector3* out_witness2) {
     std::array<Vector3, 4> tv = {p1, p2, p3, p4};
     PolygonSupportFunction s1{std::span<const Vector3>(tv)};
     PolygonSupportFunction s2{convex};
 
     Vector3 penetration, wp1, wp2;
     if (!CalcPenetrationDepth(s1, s2, penetration, wp1, wp2,
-                              kDefaultRealTolerance)) {
+                              kPenetrationTolerance)) {
         return false;
     }
     if (penetration.norm() <= 0) {
@@ -1225,55 +1319,88 @@ bool GetTetrahedronConvexMTD(Vector3 p1, Vector3 p2, Vector3 p3, Vector3 p4,
     if (mtd) {
         *mtd = penetration;
     }
+    if (out_witness1) {
+        *out_witness1 = wp1;
+    }
+    if (out_witness2) {
+        *out_witness2 = wp2;
+    }
     return true;
 }
 
 bool GetCapsuleTetrahedronMTD(Vector3 center, Vector3 axis, real half_height,
                               real radius, Vector3 p1, Vector3 p2, Vector3 p3,
-                              Vector3 p4, Vector3* mtd) {
+                              Vector3 p4, Vector3* mtd, Vector3* out_witness1,
+                              Vector3* out_witness2) {
     CapsuleSupportFunction s1{center, axis, half_height, radius};
     std::array<Vector3, 4> tv = {p1, p2, p3, p4};
     PolygonSupportFunction s2{std::span<const Vector3>(tv)};
 
     Vector3 penetration, wp1, wp2;
     if (!CalcPenetrationDepth(s1, s2, penetration, wp1, wp2,
-                              kDefaultRealTolerance)) {
+                              kPenetrationTolerance)) {
         return false;
     }
     if (penetration.norm() <= 0) return false;
-    if (mtd) *mtd = penetration;
+    if (mtd) {
+        *mtd = penetration;
+    }
+    if (out_witness1) {
+        *out_witness1 = wp1;
+    }
+    if (out_witness2) {
+        *out_witness2 = wp2;
+    }
     return true;
 }
 
 bool GetCapsuleConvexMTD(Vector3 center, Vector3 axis, real half_height,
                          real radius, std::span<const Vector3> convex,
-                         Vector3* mtd) {
+                         Vector3* mtd, Vector3* out_witness1,
+                         Vector3* out_witness2) {
     CapsuleSupportFunction s1(center, axis, half_height, radius);
     PolygonSupportFunction s2(convex);
 
     Vector3 penetration, p1, p2;
     if (!CalcPenetrationDepth(s1, s2, penetration, p1, p2,
-                              kDefaultRealTolerance)) {
+                              kPenetrationTolerance)) {
         return false;
     }
     if (penetration.norm() <= 0) return false;
-    if (mtd) *mtd = penetration;
+    if (mtd) {
+        *mtd = penetration;
+    }
+    if (out_witness1) {
+        *out_witness1 = p1;
+    }
+    if (out_witness2) {
+        *out_witness2 = p2;
+    }
     return true;
 }
 
 bool GetOBBConvexMTD(Vector3 center, std::span<const Vector3, 3> axises,
                      Vector3 half_extent, std::span<const Vector3> convex,
-                     Vector3* mtd) {
+                     Vector3* mtd, Vector3* out_witness1,
+                     Vector3* out_witness2) {
     OBBSupportFunction s1(center, axises, half_extent);
     PolygonSupportFunction s2(convex);
 
     Vector3 penetration, p1, p2;
     if (!CalcPenetrationDepth(s1, s2, penetration, p1, p2,
-                              kDefaultRealTolerance)) {
+                              kPenetrationTolerance)) {
         return false;
     }
     if (penetration.norm() <= 0) return false;
-    if (mtd) *mtd = penetration;
+    if (mtd) {
+        *mtd = penetration;
+    }
+    if (out_witness1) {
+        *out_witness1 = p1;
+    }
+    if (out_witness2) {
+        *out_witness2 = p2;
+    }
     return true;
 }
 

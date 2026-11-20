@@ -20,12 +20,14 @@ class ConvexHullGeometry;
 class Geometry {
 public:
     enum class Type {
-        Invalid,
+        Invalid = -1,
         Box,
         Sphere,
         Capsule,
         Cylinder,
         ConvexHull,
+
+        kCount,
     };
 
     explicit Geometry(Type type);
