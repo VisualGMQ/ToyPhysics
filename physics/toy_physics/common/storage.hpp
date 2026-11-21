@@ -157,7 +157,7 @@ struct StorageElem {
     [[nodiscard]] StorageID GetID() const {
         using chunk_type = Storage<T>::Chunk;
         auto chunk = reinterpret_cast<const chunk_type*>(this);
-        return chunk->m_id.GetIndex();
+        return static_cast<StorageID>(chunk->m_id.GetIndex());
     }
 };
 

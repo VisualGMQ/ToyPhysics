@@ -1,4 +1,4 @@
-#include "toy_physics/transform.hpp"
+#include "toy_physics/common/transform.hpp"
 
 namespace toy_physics {
 
@@ -14,6 +14,10 @@ Transform Transform::RelativeBy(const Transform& child) const {
     p.m_position = m_position - child.m_position;
     p.m_rotation = m_rotation * child.m_rotation.inverse();
     return p;
+}
+
+Vector3 Transform::TransformBy(Vector3 position) const {
+    return m_position + m_rotation * position;
 }
 
 bool Transform::operator==(const Transform& p) const noexcept {

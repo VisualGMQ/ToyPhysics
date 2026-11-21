@@ -154,6 +154,11 @@ public:
         return std::get<std::vector<T>>(m_payloads);
     }
 
+    template <typename T>
+    [[nodiscard]] auto& GetPayloads() {
+        return std::get<std::vector<T>>(m_payloads);
+    }
+
     [[nodiscard]] const std::vector<TightPoolID>& GetAllIDs() const {
         return m_index_id_map;
     }

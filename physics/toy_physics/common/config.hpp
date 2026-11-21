@@ -13,15 +13,15 @@ namespace toy_physics {
 #endif
 
 #ifndef TOY_PHYSICS_FLOAT_TOLERANCE
-static constexpr float kDefaultFloatTolerance = 1e-5;
+static constexpr float kDefaultFloatTolerance = 1e-6;
 #else
 static constexpr float kDefaultFloatTolerance = TOY_PHYSICS_FLOAT_TOLERANCE;
 #endif
 
 #ifndef TOY_PHYSICS_DOUBLE_TOLERANCE
-static constexpr float kDefaultDoubleTolerance = 1e-6;
+static constexpr double kDefaultDoubleTolerance = 1e-12;
 #else
-static constexpr float kDefaultDoubleTolerance = TOY_PHYSICS_DOUBLE_TOLERANCE;
+static constexpr double kDefaultDoubleTolerance = TOY_PHYSICS_DOUBLE_TOLERANCE;
 #endif
 
 #ifdef TOY_PHYSICS_DOUBLE

@@ -6,6 +6,8 @@
 #include "toy_physics/geometry/cylinder.hpp"
 #include "toy_physics/geometry/sphere.hpp"
 
+#include <utility>
+
 namespace toy_physics {
 
 Geometry::Geometry(Type type) : m_type{type} {}

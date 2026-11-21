@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "bp.hpp"
+#include "toy_physics/bp/bp.hpp"
 #include "toy_physics/bp/bvh.hpp"
 #include "toy_physics/common/tight_pool.hpp"
 #include "toy_physics/geometry/bounding_box.hpp"

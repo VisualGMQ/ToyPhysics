@@ -25,6 +25,13 @@ using Quaternion = Eigen::Quaternion<real>;
 static constexpr auto MATH_PI = EIGEN_PI;
 
 template <typename T>
+requires std::is_floating_point_v<T>
+[[nodiscard]] bool IsRealApproxEq(T value1, T value2,
+                                T tolerance = kDefaultRealTolerance) {
+    return std::abs(value1 - value2) <= tolerance;
+}
+
+template <typename T>
 requires(std::is_floating_point_v<T>)
 class TDegrees;
 

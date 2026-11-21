@@ -1,6 +1,6 @@
 ﻿#include "toy_physics/bp/bvh_topdown.hpp"
+#include "toy_physics/rigid_sim/shape.hpp"
 #include "toy_physics/common/check.hpp"
-#include "toy_physics/shape.hpp"
 #include <algorithm>
 #include <limits>
 #include <numeric>

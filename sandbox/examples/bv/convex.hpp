@@ -1,9 +1,10 @@
 #pragma once
-#include "toy_physics/geometry/convex_hull.hpp"
-#include "toy_physics/lowlevel/bv.hpp"
 #include "example.hpp"
 #include "examples/bv/util.hpp"
+#include "toy_physics/geometry/convex_hull.hpp"
+#include "toy_physics/lowlevel/bv.hpp"
 #include <array>
+#include <vector>
 
 class ConvexBVExample : public IExample {
 public:
@@ -19,23 +20,25 @@ private:
     toy_physics::ConvexData* m_data = nullptr;
 };
 
-inline ConvexBVExample::ConvexBVExample(Context& ctx,
-                                        const std::string& name)
+inline ConvexBVExample::ConvexBVExample(Context& ctx, const std::string& name)
     : IExample{ctx, name} {
     static constexpr float kRadius = 3.f;
     static constexpr float kHalfHeight = 2.5f;
 
-    m_data = m_factory.Create();
+    std::vector<toy_physics::Vector3> vertices;
+    vertices.reserve(12);
     for (int k = 0; k < 6; ++k) {
         float ang = k * 60.f * DEG2RAD;
-        m_data->m_vertices.emplace_back(kRadius * cosf(ang), kHalfHeight,
-                                        kRadius * sinf(ang));
+        vertices.emplace_back(kRadius * cosf(ang), kHalfHeight,
+                              kRadius * sinf(ang));
     }
     for (int k = 0; k < 6; ++k) {
         float ang = k * 60.f * DEG2RAD;
-        m_data->m_vertices.emplace_back(kRadius * cosf(ang), -kHalfHeight,
-                                        kRadius * sinf(ang));
+        vertices.emplace_back(kRadius * cosf(ang), -kHalfHeight,
+                              kRadius * sinf(ang));
     }
+
+    m_data = m_factory.Create(std::span<const toy_physics::Vector3>(vertices));
 }
 
 inline void ConvexBVExample::OnUpdate(float delta_time) {}
@@ -48,8 +51,10 @@ inline void ConvexBVExample::OnRender3D(float delta_time) {
 
     // hexagonal prism: 6 side quads + top/bottom fans
     std::array<::Vector3, 12> world;
-    for (size_t i = 0; i < m_data->m_vertices.size(); i++) {
-        world[i] = tf(m_data->m_vertices[i]);
+    const std::span<const toy_physics::Vector3> vertices =
+        m_data->GetVertices();
+    for (size_t i = 0; i < vertices.size(); i++) {
+        world[i] = tf(vertices[i]);
     }
 
     Color face = {0, 0, 255, 76};

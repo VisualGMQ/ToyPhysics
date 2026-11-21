@@ -5,26 +5,28 @@
 
 namespace toy_physics {
 
+GeometryUnion::GeometryUnion() : m_union{InvalidGeometry{}} {}
+
 GeometryUnion::GeometryUnion(Geometry::Type type) {
     switch (type) {
-    case Geometry::Type::Invalid:
-        std::construct_at(&m_union.m_invalid);
-        break;
-    case Geometry::Type::Box:
-        std::construct_at(&m_union.m_box);
-        break;
-    case Geometry::Type::Sphere:
-        std::construct_at(&m_union.m_sphere);
-        break;
-    case Geometry::Type::Capsule:
-        std::construct_at(&m_union.m_capsule);
-        break;
-    case Geometry::Type::Cylinder:
-        std::construct_at(&m_union.m_cylinder);
-        break;
-    case Geometry::Type::ConvexHull:
-        std::construct_at(&m_union.m_convex_hull);
-        break;
+        case Geometry::Type::Invalid:
+            std::construct_at(&m_union.m_invalid);
+            break;
+        case Geometry::Type::Box:
+            std::construct_at(&m_union.m_box);
+            break;
+        case Geometry::Type::Sphere:
+            std::construct_at(&m_union.m_sphere);
+            break;
+        case Geometry::Type::Capsule:
+            std::construct_at(&m_union.m_capsule);
+            break;
+        case Geometry::Type::Cylinder:
+            std::construct_at(&m_union.m_cylinder);
+            break;
+        case Geometry::Type::ConvexHull:
+            std::construct_at(&m_union.m_convex_hull);
+            break;
     }
 }
 
@@ -90,8 +92,7 @@ const ConvexHullGeometry* GeometryUnion::AsConvexHull() const {
 }
 
 ConvexHullGeometry* GeometryUnion::AsConvexHull() {
-    return const_cast<ConvexHullGeometry*>(
-        std::as_const(*this).AsConvexHull());
+    return const_cast<ConvexHullGeometry*>(std::as_const(*this).AsConvexHull());
 }
 
 const Geometry* GeometryUnion::GetGeometry() const {

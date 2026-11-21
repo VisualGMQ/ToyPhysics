@@ -1,5 +1,5 @@
 ﻿#include "toy_physics/bp/bvh_incresement.hpp"
-#include "toy_physics/shape.hpp"
+#include "toy_physics/rigid_sim/shape.hpp"
 
 #include <algorithm>
 #include <limits>

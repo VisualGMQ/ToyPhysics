@@ -28,7 +28,7 @@ void Context::Initialize() {
 
     InitWindow(WINDOW_INIT_W, WINDOW_INIT_H, WINDOW_TITLE);
     SetWindowState(FLAG_WINDOW_RESIZABLE);
-    SetTargetFPS(60);
+    SetTargetFPS(20000);
     GuiLoadStyleDefault();
     GuiSetStyle(DEFAULT, TEXT_SIZE, 20);
     initTexture();
@@ -385,6 +385,9 @@ void Context::renderUpdate() {
     }
     showHelpMsg();
     renderExampleMenu();
+
+    // 帧率显示
+    DrawFPS(GetScreenWidth() - 120, 24);
 
     EndDrawing();
 }

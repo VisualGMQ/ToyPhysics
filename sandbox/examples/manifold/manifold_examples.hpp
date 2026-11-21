@@ -1,4 +1,6 @@
 #pragma once
+#include "../../../physics/toy_physics/rigid_sim/manifold.hpp"
+#include "../../../physics/toy_physics/rigid_sim/shape.hpp"
 #include "example.hpp"
 #include "examples/nearest_points/util.hpp"
 #include "toy_physics/geometry/box.hpp"
@@ -6,11 +8,11 @@
 #include "toy_physics/geometry/convex_hull.hpp"
 #include "toy_physics/geometry/cylinder.hpp"
 #include "toy_physics/geometry/sphere.hpp"
-#include "toy_physics/lowlevel/manifold.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <memory>
 #include <variant>
 #include <vector>
 
@@ -68,14 +70,14 @@ inline toy_physics::Transform ToPhysicsTransform(const ShapeState& state) {
     return transform;
 }
 
-inline void FillHexPrism(toy_physics::ConvexData& data, float radius,
-                         float half_height) {
-    data.m_vertices.clear();
+inline void FillHexPrism(std::vector<toy_physics::Vector3>& vertices,
+                         float radius, float half_height) {
+    vertices.clear();
     for (int k = 0; k < 6; ++k) {
         float angle = k * 60.f * DEG2RAD;
-        data.m_vertices.push_back(toy_physics::Vector3{
+        vertices.push_back(toy_physics::Vector3{
             radius * cosf(angle), half_height, radius * sinf(angle)});
-        data.m_vertices.push_back(toy_physics::Vector3{
+        vertices.push_back(toy_physics::Vector3{
             radius * cosf(angle), -half_height, radius * sinf(angle)});
     }
 }
@@ -85,8 +87,11 @@ using GeometryVariant =
                  toy_physics::CapsuleGeometry, toy_physics::CylinderGeometry,
                  toy_physics::ConvexHullGeometry>;
 
-inline GeometryVariant MakeGeometry(const ShapeState& state,
-                                    toy_physics::ConvexData& convex_data) {
+inline GeometryVariant MakeGeometry(
+    const ShapeState& state,
+    std::unique_ptr<toy_physics::ConvexData>& convex_data) {
+    convex_data.reset();
+
     switch (state.m_kind) {
         case ShapeKind::Box:
             return GeometryVariant(std::in_place_type<toy_physics::BoxGeometry>,
@@ -103,11 +108,15 @@ inline GeometryVariant MakeGeometry(const ShapeState& state,
             return GeometryVariant(
                 std::in_place_type<toy_physics::CylinderGeometry>,
                 state.m_radius, state.m_half_height);
-        case ShapeKind::Convex:
-            FillHexPrism(convex_data, state.m_radius, state.m_half_height);
+        case ShapeKind::Convex: {
+            std::vector<toy_physics::Vector3> vertices;
+            FillHexPrism(vertices, state.m_radius, state.m_half_height);
+            convex_data = std::make_unique<toy_physics::ConvexData>(
+                std::span<const toy_physics::Vector3>(vertices));
             return GeometryVariant(
                 std::in_place_type<toy_physics::ConvexHullGeometry>,
-                convex_data);
+                *convex_data);
+        }
     }
     return GeometryVariant(std::in_place_type<toy_physics::BoxGeometry>,
                            ToVec3(state.m_half_extent));
@@ -118,6 +127,15 @@ inline const toy_physics::Geometry& GetGeometry(
     return std::visit(
         [](const auto& geometry) -> const toy_physics::Geometry& {
             return geometry;
+        },
+        variant);
+}
+
+inline std::unique_ptr<toy_physics::Shape> MakeShape(
+    const GeometryVariant& variant) {
+    return std::visit(
+        [](const auto& geometry) -> std::unique_ptr<toy_physics::Shape> {
+            return std::make_unique<toy_physics::Shape>(geometry);
         },
         variant);
 }
@@ -300,8 +318,8 @@ private:
 inline void ManifoldPairExampleBase::OnRender3D(float delta_time) {
     (void)delta_time;
 
-    toy_physics::ConvexData convex_data1;
-    toy_physics::ConvexData convex_data2;
+    std::unique_ptr<toy_physics::ConvexData> convex_data1;
+    std::unique_ptr<toy_physics::ConvexData> convex_data2;
     manifold_example::GeometryVariant geometry1 =
         manifold_example::MakeGeometry(m_state1, convex_data1);
     manifold_example::GeometryVariant geometry2 =
@@ -312,9 +330,15 @@ inline void ManifoldPairExampleBase::OnRender3D(float delta_time) {
     const toy_physics::Transform transform2 =
         manifold_example::ToPhysicsTransform(m_state2);
 
-    toy_physics::ComputeManifold(
-        manifold_example::GetGeometry(geometry1), transform1,
-        manifold_example::GetGeometry(geometry2), transform2, &m_manifold);
+    const std::unique_ptr<toy_physics::Shape> shape1 =
+        manifold_example::MakeShape(geometry1);
+    const std::unique_ptr<toy_physics::Shape> shape2 =
+        manifold_example::MakeShape(geometry2);
+
+    shape1->SetLocalTransform(transform1.m_position, transform1.m_rotation);
+    shape2->SetLocalTransform(transform2.m_position, transform2.m_rotation);
+
+    toy_physics::ComputeManifold(*shape1, *shape2, &m_manifold);
 
     const Color fill1 = {0, 120, 255, 55};
     const Color wire1 = {60, 160, 255, 230};

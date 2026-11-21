@@ -4,11 +4,12 @@
 namespace toy_physics {
 
 struct Transform {
-    Vector3 m_position{};
+    Vector3 m_position{Vector3::Zero()};
     Quaternion m_rotation{Quaternion::Identity()};
 
     [[nodiscard]] Transform TransformBy(const Transform& o) const;
     [[nodiscard]] Transform RelativeBy(const Transform& child) const;
+    [[nodiscard]] Vector3 TransformBy(Vector3) const;
 
     bool operator==(const Transform&) const noexcept;
     bool operator!=(const Transform&) const noexcept;

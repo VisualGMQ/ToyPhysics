@@ -1,5 +1,5 @@
 ﻿#include "toy_physics/bp/bp.hpp"
-#include "toy_physics/shape.hpp"
+#include "toy_physics/rigid_sim/shape.hpp"
 
 namespace toy_physics {
 

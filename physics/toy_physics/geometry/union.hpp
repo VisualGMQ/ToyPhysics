@@ -11,7 +11,7 @@ namespace toy_physics {
 
 class GeometryUnion {
 public:
-    GeometryUnion() = default;
+    GeometryUnion();
     explicit GeometryUnion(Geometry::Type type);
 
     explicit GeometryUnion(const BoxGeometry& box);

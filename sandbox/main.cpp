@@ -29,6 +29,7 @@
 #include "examples/raycast/sphere.hpp"
 #include "examples/raycast/triangle.hpp"
 #include "examples/render_test/render_test.hpp"
+#include "examples/rigid/boxes.hpp"
 #include "examples/sweep/capsule_capsule.hpp"
 #include "examples/sweep/capsule_convex.hpp"
 #include "examples/sweep/capsule_cylinder.hpp"
@@ -102,6 +103,7 @@ void registerExamples(Context& ctx) {
     REGISTER_EXAMPLE(Bvh, "BP/BVH");
     REGISTER_EXAMPLE(InteracteBvh, "BP/Interacte BVH");
     REGISTER_EXAMPLE(IncBvh, "BP/Incremental BVH");
+    REGISTER_EXAMPLE(RigidBoxes, "Rigid/Boxes");
     REGISTER_EXAMPLE(RenderTest, "RenderTest");
 }
 

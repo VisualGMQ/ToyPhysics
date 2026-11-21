@@ -1,8 +1,8 @@
 #pragma once
+#include "../physics/toy_physics/rigid_sim/shape.hpp"
 #include "example.hpp"
 #include "raygui.h"
 #include "raylib.h"
-#include "toy_physics/shape.hpp"
 #include <array>
 #include <memory>
 #include <vector>

@@ -134,7 +134,7 @@ std::unique_ptr<toy_physics::Shape> IncBvhExample::createShapeFromItem(
 
 void IncBvhExample::applyTransform(size_t index) {
     const RenderItem& item = m_render_items[index];
-    m_shapes[index]->SetTransform(
+    m_shapes[index]->SetLocalTransform(
         toy_physics::Vector3{item.m_center.x, item.m_center.y, item.m_center.z},
         EulerToQuat(item.m_rotation));
 }

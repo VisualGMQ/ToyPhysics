@@ -107,7 +107,7 @@ void BvhExample::rebuildScene() {
             }
         }
 
-        shape->SetTransform(toy_physics::Vector3{center.x, center.y, center.z},
+        shape->SetLocalTransform(toy_physics::Vector3{center.x, center.y, center.z},
                             EulerToQuat(rotation));
         ptrs.push_back(shape.get());
         shapes.push_back(std::move(shape));

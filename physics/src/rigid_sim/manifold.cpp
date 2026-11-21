@@ -1,4 +1,4 @@
-#include "toy_physics/lowlevel/manifold.hpp"
+#include "../../toy_physics/rigid_sim/manifold.hpp"
 
 #include "toy_physics/common/check.hpp"
 #include "toy_physics/geometry/box.hpp"
@@ -8,6 +8,7 @@
 #include "toy_physics/geometry/sphere.hpp"
 #include "toy_physics/lowlevel/algorithm.hpp"
 #include "toy_physics/lowlevel/epa.hpp"
+#include "toy_physics/rigid_sim/shape.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -86,14 +87,18 @@ Vector3 getConvexSupportPoint(const Geometry& geom, const Transform& trans,
 
     const auto& hull = static_cast<const ConvexHullGeometry&>(geom);
     const ConvexData* data = hull.GetConvex();
-    if (!data || data->m_vertices.empty()) {
+    if (!data) {
+        return trans.m_position;
+    }
+    const std::span<const Vector3> vertices = data->GetVertices();
+    if (vertices.empty()) {
         return trans.m_position;
     }
 
     const Matrix33 rotation = trans.m_rotation.toRotationMatrix();
     real best = -std::numeric_limits<real>::max();
     Vector3 result = trans.m_position;
-    for (const Vector3& vertex : data->m_vertices) {
+    for (const Vector3& vertex : vertices) {
         const Vector3 point = trans.m_position + rotation * vertex;
         const real projection = point.dot(dir);
         if (projection > best) {
@@ -284,15 +289,19 @@ Feature makeConvexFeature(const Geometry& geom, const Transform& trans,
     const auto& hull = static_cast<const ConvexHullGeometry&>(geom);
     Feature feature;
     const ConvexData* data = hull.GetConvex();
-    if (!data || data->m_vertices.empty()) {
+    if (!data) {
+        return feature;
+    }
+    const std::span<const Vector3> vertices = data->GetVertices();
+    if (vertices.empty()) {
         return feature;
     }
 
     const Matrix33 rotation = trans.m_rotation.toRotationMatrix();
     std::vector<Vector3> world;
-    world.reserve(data->m_vertices.size());
+    world.reserve(vertices.size());
     real max_projection = -std::numeric_limits<real>::max();
-    for (const Vector3& v : data->m_vertices) {
+    for (const Vector3& v : vertices) {
         Vector3 p = trans.m_position + rotation * v;
         real projection = p.dot(dir);
         max_projection = std::max(max_projection, projection);
@@ -757,20 +766,25 @@ bool ComputePenetration(const Geometry& geom1, const Transform& trans1,
     return true;
 }
 
-bool ComputeManifold(const Geometry& geom1, const Transform& trans1,
-                     const Geometry& geom2, const Transform& trans2,
+bool ComputeManifold(const Shape& shape1, const Shape& shape2,
                      Manifold* out_manifold) {
     if (!out_manifold) {
         return false;
     }
 
     *out_manifold = Manifold{};
-    out_manifold->m_body1 = &geom1;
-    out_manifold->m_body2 = &geom2;
+    out_manifold->m_shape1 = &shape1;
+    out_manifold->m_shape2 = &shape2;
 
     Vector3 penetration;
     Vector3 witness1;
     Vector3 witness2;
+
+    const Geometry& geom1 = *shape1.GetGeometry();
+    const Geometry& geom2 = *shape2.GetGeometry();
+    const Transform& trans1 = shape1.GetTransform();
+    const Transform& trans2 = shape2.GetTransform();
+
     if (!ComputePenetration(geom1, trans1, geom2, trans2, &penetration,
                             &witness1, &witness2)) {
         return false;

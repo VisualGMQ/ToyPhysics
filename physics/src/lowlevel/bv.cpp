@@ -5,8 +5,7 @@
 namespace toy_physics {
 
 AABB BuildBV(const BoxGeometry& box, Quaternion rotation) {
-    Vector3 half =
-        rotation.toRotationMatrix().cwiseAbs() * box.m_half_extent;
+    Vector3 half = rotation.toRotationMatrix().cwiseAbs() * box.m_half_extent;
     return AABB::FromCenter(Vector3::Zero(), half);
 }
 
@@ -34,7 +33,11 @@ AABB BuildBV(const CylinderGeometry& cylinder, Quaternion rotation) {
 
 AABB BuildBV(const ConvexHullGeometry& convex, Quaternion rotation) {
     const ConvexData* data = convex.GetConvex();
-    if (!data || data->m_vertices.empty()) {
+    if (!data) {
+        return AABB{};
+    }
+    const std::span<const Vector3> vertices = data->GetVertices();
+    if (vertices.empty()) {
         return AABB{};
     }
     Quaternion inv = rotation.conjugate();
@@ -42,7 +45,7 @@ AABB BuildBV(const ConvexHullGeometry& convex, Quaternion rotation) {
                     inv * Vector3::UnitZ()};
     Vector3 mn = Vector3::Constant(kREAL_MAX);
     Vector3 mx = Vector3::Constant(-kREAL_MAX);
-    for (const Vector3& v : data->m_vertices) {
+    for (const Vector3& v : vertices) {
         for (int i = 0; i < 3; ++i) {
             real proj = v.dot(d[i]);
             mn[i] = std::min(mn[i], proj);
@@ -60,19 +63,19 @@ AABB BuildBV(const std::array<Vector3, 3>& vertices) {
 
 AABB BuildBV(const Geometry& geometry, Quaternion rotation) {
     switch (geometry.GetType()) {
-    case Geometry::Type::Box:
-        return BuildBV(*geometry.AsBox(), rotation);
-    case Geometry::Type::Sphere:
-        return BuildBV(*geometry.AsSphere());
-    case Geometry::Type::Capsule:
-        return BuildBV(*geometry.AsCapsule(), rotation);
-    case Geometry::Type::Cylinder:
-        return BuildBV(*geometry.AsCylinder(), rotation);
-    case Geometry::Type::ConvexHull:
-        return BuildBV(*geometry.AsConvexHull(), rotation);
-    case Geometry::Type::Invalid:
-    default:
-        return AABB{};
+        case Geometry::Type::Box:
+            return BuildBV(*geometry.AsBox(), rotation);
+        case Geometry::Type::Sphere:
+            return BuildBV(*geometry.AsSphere());
+        case Geometry::Type::Capsule:
+            return BuildBV(*geometry.AsCapsule(), rotation);
+        case Geometry::Type::Cylinder:
+            return BuildBV(*geometry.AsCylinder(), rotation);
+        case Geometry::Type::ConvexHull:
+            return BuildBV(*geometry.AsConvexHull(), rotation);
+        case Geometry::Type::Invalid:
+        default:
+            return AABB{};
     }
 }
 
