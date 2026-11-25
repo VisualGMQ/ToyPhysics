@@ -52,8 +52,9 @@ struct SolverContact {
     real m_normal_impulse{0};
     std::array<real, 2> m_tangent_impulses{0};
 
-    // -C_n/dt
-    real m_bias{0};
+    // for pseudo impulse method
+    real m_position_lambda{0};
+    real m_separation{0};
 };
 
 class RigidSolver {
@@ -69,11 +70,14 @@ public:
         } m_friction_policy = Average;
 
         uint32_t m_iter_num = 10;
-        real m_max_correction_velocity = 1;
 
-        // baumgarte stability in velocity
-        real m_baumgarte{0};
-        real m_penetration_slop{0};
+        real m_penetration_slop{0.005f};
+
+        // pseudo impulse
+        bool m_use_split_impulse{true};
+        real m_position_baumgarte{0.2f};
+        uint32_t m_position_iter_num = 4;
+        real m_max_position_correction = 0.05f;
     };
 
     explicit RigidSolver(const Settings&);
@@ -105,7 +109,7 @@ private:
         bool flipped,
         std::array<bool, 4>& used) const;
 
-    void warmStartContacts();
+    void warmStartContacts(real impulse_ratio);
     void storeImpulses();
 
     Settings m_settings;
@@ -113,12 +117,17 @@ private:
 
     std::unordered_map<ShapePair, CachedManifold> m_cache;
 
+    real m_prev_dt{0};
+
     void integrateVelocities(std::span<RigidActor*>, real dt, bool use_gyro) const;
-    void detectContacts(std::span<RigidActor*>, real dt,
-                        const BroadPhase& sim_broad_phase);
-    void convertManifoldToSolverContacts(const Manifold& manifold, real dt);
+    void detectContacts(std::span<RigidActor*>, const BroadPhase& sim_broad_phase);
+    void convertManifoldToSolverContacts(const Manifold& manifold);
     [[nodiscard]] real computeEffectiveMass(const SolverContact&, Vector3 tangent) const;
     void solveVelocityConstraints();
+
+    void solvePositionConstraints(std::span<RigidActor*>, real dt);
+    [[nodiscard]] Vector3 pseudoRelativeVelocity(const SolverContact&) const;
+
     void integrateTransforms(std::span<RigidActor*>, real dt);
 
     [[nodiscard]] Vector3 velocityAt(DynamicRigidBody* body, const Vector3& r) const;
@@ -127,6 +136,7 @@ private:
     void solveNormal(SolverContact&);
     void solveFriction(SolverContact&);
     void applyContactImpulse(SolverContact&, const Vector3& impulse);
+    void applyPseudoImpulse(SolverContact&, const Vector3& impulse);
 };
 
 }  // namespace toy_physics

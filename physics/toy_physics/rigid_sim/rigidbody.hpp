@@ -119,6 +119,10 @@ private:
     Vector3 m_velocity{Vector3::Zero()};
     Vector3 m_angular_velocity{Vector3::Zero()};
 
+    // for pseudo impulse method
+    Vector3 m_pseudo_linear{Vector3::Zero()};
+    Vector3 m_pseudo_angular{Vector3::Zero()};
+
     Vector3 m_force{Vector3::Zero()};
     Vector3 m_torque{Vector3::Zero()};
 

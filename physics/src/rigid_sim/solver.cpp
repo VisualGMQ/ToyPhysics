@@ -20,11 +20,17 @@ void RigidSolver::Solve(std::span<RigidActor*> actors, real dt,
 
     // Step2: detect contact and generate manifolds
     m_contacts.clear();
-    detectContacts(actors, dt, sim_broad_phase);
+    detectContacts(actors, sim_broad_phase);
 
     // Step3: restore impulses from last frame and apply them
     if (m_settings.m_use_warm_start) {
-        warmStartContacts();
+        // impulse's unit is N·s, so different time will make it larger/smaller.
+        // we need compute the ratio dt/prev_dt, then apply on old impulse.
+        // the maximim ratio is limited to 4, to forbid a large impulse
+        // which the solver can't correct it then make body move so fast
+        const real impulse_ratio =
+            m_prev_dt > 0 ? std::min<real>(dt / m_prev_dt, 4) : 1;
+        warmStartContacts(impulse_ratio);
     }
 
     // Step4: solve constraints
@@ -39,6 +45,13 @@ void RigidSolver::Solve(std::span<RigidActor*> actors, real dt,
 
     // Step6: integrate transform
     integrateTransforms(actors, dt);
+
+    // Step7: position correction using split impulse
+    if (m_settings.m_use_split_impulse) {
+        solvePositionConstraints(actors, dt);
+    }
+
+    m_prev_dt = dt;
 }
 
 const RigidSolver::Settings& RigidSolver::GetSettings() const {
@@ -97,7 +110,7 @@ void RigidSolver::integrateVelocities(std::span<RigidActor*> actors, real dt,
     }
 }
 
-void RigidSolver::detectContacts(std::span<RigidActor*> actors, real dt,
+void RigidSolver::detectContacts(std::span<RigidActor*> actors,
                                  const BroadPhase& sim_broad_phase) {
     for (RigidActor* actor1 : actors) {
         const std::span<Shape*> shapes1 = actor1->GetShapes();
@@ -135,14 +148,13 @@ void RigidSolver::detectContacts(std::span<RigidActor*> actors, real dt,
                     continue;
                 }
 
-                convertManifoldToSolverContacts(manifold, dt);
+                convertManifoldToSolverContacts(manifold);
             }
         });
     }
 }
 
-void RigidSolver::convertManifoldToSolverContacts(const Manifold& manifold,
-                                                  real dt) {
+void RigidSolver::convertManifoldToSolverContacts(const Manifold& manifold) {
     real friction1 = manifold.m_shape1->GetFriction();
     real friction2 = manifold.m_shape2->GetFriction();
     real friction = 0;
@@ -209,13 +221,6 @@ void RigidSolver::convertManifoldToSolverContacts(const Manifold& manifold,
         contact.m_tangent_masses[1] =
             computeEffectiveMass(contact, contact.m_tangent2);
 
-        // penetration by using baumgarte
-        const real penetration =
-            std::max<real>(contact.m_depth - m_settings.m_penetration_slop, 0);
-
-        contact.m_bias = std::min(m_settings.m_baumgarte * penetration / dt,
-                                  m_settings.m_max_correction_velocity);
-
         m_contacts.push_back(contact);
     }
 }
@@ -245,6 +250,132 @@ void RigidSolver::solveVelocityConstraints() {
             solveNormal(contact);
             solveFriction(contact);
         }
+    }
+}
+
+Vector3 RigidSolver::pseudoRelativeVelocity(const SolverContact& c) const {
+    const Vector3 v2 = c.m_dyn2
+                           ? Vector3(c.m_dyn2->m_pseudo_linear +
+                                     c.m_dyn2->m_pseudo_angular.cross(c.m_r2))
+                           : Vector3::Zero();
+
+    const Vector3 v1 = c.m_dyn1
+                           ? Vector3(c.m_dyn1->m_pseudo_linear +
+                                     c.m_dyn1->m_pseudo_angular.cross(c.m_r1))
+                           : Vector3::Zero();
+
+    return v2 - v1;
+}
+
+void RigidSolver::applyPseudoImpulse(SolverContact& contact,
+                                     const Vector3& impulse) {
+    if (contact.m_dyn2 != nullptr) {
+        contact.m_dyn2->m_pseudo_linear +=
+            impulse * contact.m_dyn2->GetMassProperties().m_inv_mass;
+        contact.m_dyn2->m_pseudo_angular +=
+            contact.m_dyn2->MultiplyInvInertiaWorld(
+                contact.m_r2.cross(impulse));
+    }
+
+    if (contact.m_dyn1 != nullptr) {
+        contact.m_dyn1->m_pseudo_linear -=
+            impulse * contact.m_dyn1->GetMassProperties().m_inv_mass;
+        contact.m_dyn1->m_pseudo_angular -=
+            contact.m_dyn1->MultiplyInvInertiaWorld(
+                contact.m_r1.cross(impulse));
+    }
+}
+
+void RigidSolver::solvePositionConstraints(std::span<RigidActor*> actors,
+                                           real dt) {
+    const real slop = m_settings.m_penetration_slop;
+    const real beta = m_settings.m_position_baumgarte;
+    const real max_correction = m_settings.m_max_position_correction;
+
+    // 1. clear all pseudo impulse
+    for (RigidActor* actor : actors) {
+        DynamicRigidBody* body = actor->AsDynamic();
+        if (body == nullptr) {
+            continue;
+        }
+        body->m_pseudo_linear.setZero();
+        body->m_pseudo_angular.setZero();
+    }
+
+    // 2. re-compute r1/r2 by using integrated position
+    for (SolverContact& contact : m_contacts) {
+        contact.m_position_lambda = 0;
+
+        const Transform& t1 = contact.m_body1->GetTransform();
+        const Transform& t2 = contact.m_body2->GetTransform();
+
+        const Vector3 p1 = t1.m_position + t1.m_rotation * contact.m_local1;
+        const Vector3 p2 = t2.m_position + t2.m_rotation * contact.m_local2;
+
+        contact.m_r1 = contact.m_dyn1 ? p1 - contact.m_dyn1->GetCenterOfMassPosition()
+                          : p1 - t1.m_position;
+        contact.m_r2 = contact.m_dyn2 ? p2 - contact.m_dyn2->GetCenterOfMassPosition()
+                          : p2 - t2.m_position;
+
+        contact.m_separation = (p2 - p1).dot(contact.m_normal);
+    }
+
+    // 3. do position iter by PGS
+    for (uint32_t iter = 0; iter < m_settings.m_position_iter_num; ++iter) {
+        for (SolverContact& c : m_contacts) {
+            if (c.m_normal_mass <= 0) {
+                continue;
+            }
+
+            // C_n(q)
+            const real depth = -c.m_separation - slop;
+            if (depth <= 0) {
+                continue;
+            }
+
+            // d lambda = (new_vn - old_vn)/JM^{-1}J^T
+            const real vn_target =
+                std::min(beta * depth / dt, max_correction / dt);
+
+            const real vn = pseudoRelativeVelocity(c).dot(c.m_normal);
+            const real delta = (vn_target - vn) * c.m_normal_mass;
+
+            const real next = std::max<real>(0, c.m_position_lambda + delta);
+            const real applied = next - c.m_position_lambda;
+            c.m_position_lambda = next;
+
+            if (applied != 0) {
+                applyPseudoImpulse(c, c.m_normal * applied);
+            }
+        }
+    }
+
+    // 4. apply pseudo impulse to body
+    for (RigidActor* actor : actors) {
+        DynamicRigidBody* body = actor->AsDynamic();
+        if (body == nullptr) {
+            continue;
+        }
+
+        if (body->m_pseudo_linear.isZero() && body->m_pseudo_angular.isZero()) {
+            continue;
+        }
+
+        Transform trans = body->GetTransform();
+        trans.m_position += body->m_pseudo_linear * dt;
+
+        const Vector3 omega_dt = body->m_pseudo_angular * dt;
+        const real angle = omega_dt.norm();
+        if (angle > kREAL_EPSILON) {
+            const Vector3 axis = omega_dt / angle;
+            const Quaternion dq(Eigen::AngleAxis<real>(angle, axis));
+            trans.m_rotation = (dq * trans.m_rotation).normalized();
+        }
+
+        body->Teleport(trans);
+
+        body->m_pseudo_linear.setZero();
+        body->m_pseudo_angular.setZero();
     }
 }
 
@@ -295,8 +426,8 @@ void RigidSolver::solveNormal(SolverContact& contact) {
     // J_n u
     const real vn = relativeVelocity(contact).dot(contact.m_normal);
 
-    // -(J_n u + C_n / dt) / JM^{-1}J^T
-    const real delta = (contact.m_bias - vn) * contact.m_normal_mass;
+    // -J_n u / JM^{-1}J^T
+    const real delta = -vn * contact.m_normal_mass;
 
     const real old = contact.m_normal_impulse;
 
@@ -393,7 +524,7 @@ int RigidSolver::findMatch(const CachedManifold& cached,
     return best;
 }
 
-void RigidSolver::warmStartContacts() {
+void RigidSolver::warmStartContacts(real impulse_ratio) {
     std::unordered_map<ShapePair, std::array<bool, 4>> used_points;
 
     for (SolverContact& contact : m_contacts) {
@@ -420,8 +551,11 @@ void RigidSolver::warmStartContacts() {
 
         const CachedPoint& point = cached.m_points[static_cast<size_t>(match)];
 
-        contact.m_normal_impulse = point.m_normal_impulse;
+        contact.m_normal_impulse = point.m_normal_impulse * impulse_ratio;
         contact.m_tangent_impulses = point.m_tangent_impulses;
+        for (real& tangent_impulse : contact.m_tangent_impulses) {
+            tangent_impulse *= impulse_ratio;
+        }
 
         const real max_friction = contact.m_friction * contact.m_normal_impulse;
 
