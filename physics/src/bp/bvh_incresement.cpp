@@ -8,8 +8,8 @@
 namespace toy_physics {
 
 AABBBroadPhase<BVHBuildPolicy::Incremental>::AABBBroadPhase(
-    BVHSplitPolicy split_policy)
-    : m_pool{m_node_pool}, m_split_policy{split_policy} {}
+    IndexSlot slot, BVHSplitPolicy split_policy)
+    : BroadPhase{slot}, m_pool{m_node_pool}, m_split_policy{split_policy} {}
 
 void AABBBroadPhase<BVHBuildPolicy::Incremental>::AddObjects(
     std::span<Shape> shapes) {
@@ -47,7 +47,7 @@ void AABBBroadPhase<BVHBuildPolicy::Incremental>::ApplyModify() {
         if (!shape) {
             continue;
         }
-        TightPoolID obj_id = FetchIndexFrom(*shape);
+        TightPoolID obj_id = FetchIndexFrom(*shape, m_index_slot);
         if (!m_pool.Has(obj_id) || m_pool.Get<Shape*>(obj_id) != shape) {
             continue;
         }
@@ -70,26 +70,63 @@ void AABBBroadPhase<BVHBuildPolicy::Incremental>::ApplyModify() {
         if (!shape) {
             continue;
         }
-        TightPoolID existing_id = FetchIndexFrom(*shape);
+        TightPoolID existing_id = FetchIndexFrom(*shape, m_index_slot);
         if (m_pool.Has(existing_id) &&
             m_pool.Get<Shape*>(existing_id) == shape) {
             // the shape is already tracked (e.g. it moved): refresh the
             // cached BV in place and refit its subtree
-            m_pool.Get<BoundingBox>(existing_id) = shape->GetBoundingBox();
+            m_pool.Get<BoundingBox>(existing_id) = shape->GetFatBoundingBox();
             TightPoolID node_id = m_pool.GetObjectNode(existing_id);
             if (node_id != InvalidTightPoolID) {
                 refit(node_id);
             }
             continue;
         }
-        TightPoolID obj_id = m_pool.Add(shape, shape->GetBoundingBox());
+        TightPoolID obj_id = m_pool.Add(shape, shape->GetFatBoundingBox());
         if (obj_id == InvalidTightPoolID) {
             continue;
         }
-        AttachIndexTo(*shape, obj_id);
+        AttachIndexTo(*shape, obj_id, m_index_slot);
         insertObject(obj_id);
     }
     m_pending_add_objects.clear();
+}
+
+void AABBBroadPhase<BVHBuildPolicy::Incremental>::DoFilter(
+    const AABB& aabb, const std::function<void(Shape*)>& fn) const {
+    if (m_root == InvalidTightPoolID || !m_node_pool.Has(m_root)) {
+        return;
+    }
+
+    m_filter_stack.clear();
+    m_filter_stack.push_back(m_root);
+
+    while (!m_filter_stack.empty()) {
+        const TightPoolID node_id = m_filter_stack.back();
+        m_filter_stack.pop_back();
+
+        const Node& node = m_node_pool.Get<Node>(node_id);
+        if (!node.m_aabb.IsIntersect(aabb)) {
+            continue;
+        }
+
+        if (!node.m_is_leaf) {
+            m_filter_stack.push_back(node.m_child[0]);
+            m_filter_stack.push_back(node.m_child[1]);
+            continue;
+        }
+
+        for (uint32_t i = 0; i < node.m_object_count; ++i) {
+            const TightPoolID obj_id = node.m_objects[i];
+            if (obj_id == InvalidTightPoolID) {
+                continue;
+            }
+            if (!m_pool.Get<BoundingBox>(obj_id).IsIntersect(aabb)) {
+                continue;
+            }
+            fn(m_pool.Get<Shape*>(obj_id));
+        }
+    }
 }
 
 TightPoolID PrunerPool<BVHBuildPolicy::Incremental>::Remove(

@@ -179,8 +179,47 @@ void PrunerPool<BVHBuildPolicy::TopDown>::permuteIDs(
 }
 
 AABBBroadPhase<BVHBuildPolicy::TopDown>::AABBBroadPhase(
-    BVHSplitPolicy split_policy)
-    : m_split_policy{split_policy} {}
+    IndexSlot slot, BVHSplitPolicy split_policy)
+    : BroadPhase{slot}, m_split_policy{split_policy} {}
+
+void AABBBroadPhase<BVHBuildPolicy::TopDown>::DoFilter(
+    const AABB& aabb, const std::function<void(Shape*)>& fn) const {
+    if (m_nodes.empty()) {
+        return;
+    }
+
+    const auto& prims = m_pool.GetPayloads<Shape*>();
+    const auto& aabbs = m_pool.GetPayloads<BoundingBox>();
+
+    m_filter_stack.clear();
+    m_filter_stack.push_back(0);
+
+    while (!m_filter_stack.empty()) {
+        const uint32_t node_index = m_filter_stack.back();
+        m_filter_stack.pop_back();
+
+        const Node& node = m_nodes[node_index];
+        if (!node.m_aabb.IsIntersect(aabb)) {
+            continue;
+        }
+
+        if (!node.m_data.IsLeaf()) {
+            m_filter_stack.push_back(node.m_data.GetPositiveChild());
+            m_filter_stack.push_back(node.m_data.GetNegativeChild());
+            continue;
+        }
+
+        const uint32_t offset = node.m_data.GetPrimOffset();
+        const uint32_t count = node.m_data.GetPrimNum();
+        for (uint32_t i = 0; i < count; ++i) {
+            const uint32_t payload_index = m_ids[offset + i];
+            if (!aabbs[payload_index].IsIntersect(aabb)) {
+                continue;
+            }
+            fn(prims[payload_index]);
+        }
+    }
+}
 
 void AABBBroadPhase<BVHBuildPolicy::TopDown>::AddObjects(
     std::span<Shape> shapes) {
@@ -271,7 +310,8 @@ void AABBBroadPhase<BVHBuildPolicy::TopDown>::refreshPool() {
         if (!shape) {
             continue;
         }
-        AttachIndexTo(*shape, m_pool.Add(shape, shape->GetBoundingBox()));
+        AttachIndexTo(*shape, m_pool.Add(shape, shape->GetFatBoundingBox()),
+                      m_index_slot);
     }
     m_pending_add_objects.clear();
 
@@ -279,7 +319,7 @@ void AABBBroadPhase<BVHBuildPolicy::TopDown>::refreshPool() {
         if (!shape) {
             continue;
         }
-        m_pool.Remove(FetchIndexFrom(*shape));
+        m_pool.Remove(FetchIndexFrom(*shape, m_index_slot));
     }
     m_pending_remove_objects.clear();
 

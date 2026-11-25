@@ -75,13 +75,23 @@ public:
     using NodePool = TightPool<Node>;
     using Pool = PrunerPool<BVHBuildPolicy::Incremental>;
 
-    explicit AABBBroadPhase(BVHSplitPolicy split_policy = BVHSplitPolicy::SAH);
+    explicit AABBBroadPhase(BVHSplitPolicy split_policy = BVHSplitPolicy::SAH)
+        : AABBBroadPhase(IndexSlot::SceneQuery, split_policy) {}
+
+    AABBBroadPhase(IndexSlot slot,
+                   BVHSplitPolicy split_policy = BVHSplitPolicy::SAH);
+
+    using BroadPhase::AddObjects;
+    using BroadPhase::RemoveObjects;
 
     void AddObjects(std::span<Shape> shapes) override;
     void RemoveObjects(std::span<Shape> shapes) override;
 
     void ApplyModify() override;
     [[nodiscard]] bool ShouldRebuild() const override;
+
+    void DoFilter(const AABB& aabb,
+                  const std::function<void(Shape*)>& fn) const override;
 
     /**
      * Debug inspection interfaces, const views of internal data.
@@ -128,6 +138,8 @@ private:
 
     std::unordered_set<Shape*> m_pending_add_objects;
     std::unordered_set<Shape*> m_pending_remove_objects;
+
+    mutable std::vector<TightPoolID> m_filter_stack;
 
     BVHSplitPolicy m_split_policy;
 

@@ -41,6 +41,15 @@ BoundingBox BoundingBox::Intersect(const BoundingBox& o) const {
     return {m_min.cwiseMax(o.m_min), m_max.cwiseMin(o.m_max)};
 }
 
+bool BoundingBox::IsInside(const BoundingBox& outer) const {
+    if (!outer.IsValid()) {
+        return false;
+    }
+
+    return (m_min.array() >= outer.m_min.array()).all() &&
+           (m_max.array() <= outer.m_max.array()).all();
+}
+
 BoundingBox BoundingBox::Merge(const BoundingBox& o) const {
     AABB c;
     c.m_min = m_min.cwiseMin(o.m_min);

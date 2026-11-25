@@ -4,6 +4,7 @@
 #include "toy_physics/foundation.hpp"
 #include "toy_physics/geometry/mass_property.hpp"
 #include "toy_physics/rigid_sim/shape.hpp"
+#include "toy_physics/world.hpp"
 
 #include <algorithm>
 #include <utility>
@@ -15,6 +16,11 @@ RigidActor::RigidActor(Type type, Foundation& foundation)
     : m_type{type}, m_foundation{foundation} {}
 
 RigidActor::~RigidActor() {
+    if (m_world != nullptr) {
+        m_world->RemoveRigidActor(*this);
+        m_world = nullptr;
+    }
+
     for (auto shape : m_shapes) {
         m_foundation.DestroyShape(*shape);
     }
@@ -46,16 +52,38 @@ RigidActor::Type RigidActor::GetType() const {
     return m_type;
 }
 
+TightPoolID RigidActor::GetID() const {
+    return m_tight_id;
+}
+
 void RigidActor::Teleport(const Transform& transform) {
     m_transform = transform;
 
     for (auto shape : m_shapes) {
         shape->updateByOwnerTransform();
     }
+
+    RefreshBoundingBox();
 }
 
 const Transform& RigidActor::GetTransform() const {
     return m_transform;
+}
+
+const AABB& RigidActor::GetBoundingBox() const {
+    return m_aabb;
+}
+
+void RigidActor::RefreshBoundingBox() {
+    if (m_shapes.empty()) {
+        m_aabb = AABB{};
+        return;
+    }
+
+    m_aabb = m_shapes[0]->GetBoundingBox();
+    for (size_t i = 1; i < m_shapes.size(); ++i) {
+        m_aabb = m_aabb.Merge(m_shapes[i]->GetBoundingBox());
+    }
 }
 
 std::span<Shape*> RigidActor::GetShapes() {
@@ -68,9 +96,12 @@ std::span<Shape* const> RigidActor::GetShapes() const {
 
 void RigidActor::AttachShape(Shape& shape) {
     m_shapes.push_back(&shape);
+    shape.attachToActor(this);
 
-    for (auto s : m_shapes) {
-        s->attachToActor(this);
+    RefreshBoundingBox();
+
+    if (m_world != nullptr) {
+        m_world->addShape(shape);
     }
 }
 
@@ -83,8 +114,19 @@ void RigidActor::RemoveShape(Shape& shape) {
     }
 }
 
+World* RigidActor::GetWorld() const {
+    return m_world;
+}
+
 void RigidActor::RemoveShape(size_t index) {
+    Shape* shape = m_shapes[index];
     m_shapes.erase(m_shapes.begin() + index);
+
+    RefreshBoundingBox();
+
+    if (m_world != nullptr) {
+        m_world->removeShape(*shape);
+    }
 }
 
 DynamicRigidBody::DynamicRigidBody(Foundation& foundation)

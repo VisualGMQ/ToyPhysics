@@ -1,4 +1,4 @@
-#include "../../toy_physics/rigid_sim/manifold.hpp"
+#include "toy_physics/rigid_sim/manifold.hpp"
 
 #include "toy_physics/common/check.hpp"
 #include "toy_physics/geometry/box.hpp"
@@ -8,6 +8,7 @@
 #include "toy_physics/geometry/sphere.hpp"
 #include "toy_physics/lowlevel/algorithm.hpp"
 #include "toy_physics/lowlevel/epa.hpp"
+#include "toy_physics/lowlevel/geom_support.hpp"
 #include "toy_physics/rigid_sim/shape.hpp"
 
 #include <algorithm>
@@ -127,20 +128,6 @@ Vector3 getGeomSupport(const Geometry& geom, const Transform& trans,
 
     return kGetGeomSupportPointFnMap[index](geom, trans, dir);
 }
-
-class GeomSupportFunction : public SupportFunction {
-public:
-    GeomSupportFunction(const Geometry& geom, const Transform& trans)
-        : m_geom{geom}, m_trans{trans} {}
-
-    Vector3 operator()(Vector3 dir) const override {
-        return getGeomSupport(m_geom, m_trans, dir);
-    }
-
-private:
-    const Geometry& m_geom;
-    const Transform& m_trans;
-};
 
 struct Feature {
     std::vector<Vector3> m_points;

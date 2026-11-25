@@ -130,13 +130,23 @@ public:
         BoundingBox m_aabb;
     };
 
-    explicit AABBBroadPhase(BVHSplitPolicy split_policy = BVHSplitPolicy::SAH);
+    explicit AABBBroadPhase(BVHSplitPolicy split_policy = BVHSplitPolicy::SAH)
+        : AABBBroadPhase(IndexSlot::SceneQuery, split_policy) {}
+
+    AABBBroadPhase(IndexSlot slot,
+                   BVHSplitPolicy split_policy = BVHSplitPolicy::SAH);
+
+    using BroadPhase::AddObjects;
+    using BroadPhase::RemoveObjects;
 
     void AddObjects(std::span<Shape> shapes) override;
     void RemoveObjects(std::span<Shape> shapes) override;
 
     void ApplyModify() override;
     [[nodiscard]] bool ShouldRebuild() const override;
+
+    void DoFilter(const AABB& aabb,
+                  const std::function<void(Shape*)>& fn) const override;
 
     /**
      * Debug inspection interfaces, const views of internal data.
@@ -165,6 +175,8 @@ private:
 
     std::vector<Shape*> m_pending_add_objects;
     std::vector<Shape*> m_pending_remove_objects;
+
+    mutable std::vector<uint32_t> m_filter_stack;
 
     BVHSplitPolicy m_split_policy;
 

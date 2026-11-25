@@ -3,6 +3,7 @@
 #include "toy_physics/common/storage.hpp"
 #include "toy_physics/common/tight_pool.hpp"
 #include "toy_physics/common/transform.hpp"
+#include "toy_physics/geometry/bounding_box.hpp"
 #include "toy_physics/geometry/geometry.hpp"
 
 #include <span>
@@ -15,6 +16,7 @@ class Shape;
 class DynamicRigidBody;
 class StaticRigidBody;
 class Foundation;
+class World;
 
 class RigidActor : public NonCopyable {
 public:
@@ -36,8 +38,14 @@ public:
 
     [[nodiscard]] Type GetType() const;
 
+    [[nodiscard]] TightPoolID GetID() const;
+
     virtual void Teleport(const Transform& transform);
     [[nodiscard]] const Transform& GetTransform() const;
+
+    [[nodiscard]] const AABB& GetBoundingBox() const;
+
+    void RefreshBoundingBox();
 
     [[nodiscard]] std::span<Shape*> GetShapes();
     [[nodiscard]] std::span<Shape* const> GetShapes() const;
@@ -46,11 +54,15 @@ public:
     virtual void RemoveShape(size_t index);
     void RemoveShape(Shape& shape);
 
+    [[nodiscard]] World* GetWorld() const;
+
 protected:
     Transform m_transform;
     std::vector<Shape*> m_shapes;
+    AABB m_aabb;
     Type m_type;
-    TightPoolID m_tight_id{InvalidTightPoolID}; // for World use
+    TightPoolID m_tight_id{InvalidTightPoolID};  // for World use
+    World* m_world{nullptr};
 
     Foundation& m_foundation;
 };
@@ -79,6 +91,7 @@ public:
     void SetAngularVelocity(const Vector3& angular_velocity);
 
     void AttachShape(Shape& shape) override;
+    using RigidActor::RemoveShape;
     void RemoveShape(size_t index) override;
 
     [[nodiscard]] const RigidBodyMassProperties& GetMassProperties() const;

@@ -14,6 +14,7 @@ class Shape : public StorageElem<Shape>, public NonCopyable {
 public:
     friend class BroadPhase;
     friend class RigidActor;
+    friend class World;
 
     explicit Shape(const BoxGeometry& box);
     explicit Shape(const SphereGeometry& sphere);
@@ -28,12 +29,19 @@ public:
 
     [[nodiscard]] const Transform& GetLocalTransform() const;
     [[nodiscard]] const Transform& GetTransform() const;
-    [[nodiscard]] const BoundingBox& GetBoundingBox() const;
+
+    [[nodiscard]] const AABB& GetBoundingBox() const;
+
+    [[nodiscard]] const AABB& GetFatBoundingBox() const;
+
+    void SetFatAABBMargin(real margin);
+    [[nodiscard]] real GetFatAABBMargin() const;
 
     void SetFriction(real);
     [[nodiscard]] real GetFriction() const;
 
     [[nodiscard]] const Geometry* GetGeometry() const;
+    [[nodiscard]] Geometry* GetGeometry();
 
     RigidActor* GetOwner();
     [[nodiscard]] const RigidActor* GetOwner() const;
@@ -46,10 +54,20 @@ private:
     void attachToActor(RigidActor* actor);
     void updateByOwnerTransform();
 
+    bool consumeSceneQueryDirty();
+    bool consumeSimulationDirty();
+    void clearBroadPhaseDirty();
+
     GeometryUnion m_geometry;
     Transform m_local_transform;
     Transform m_transform;
     BoundingBox m_aabb;
+    BoundingBox m_fat_aabb;
+    real m_fat_aabb_margin{0.5f};
+
+    bool m_sq_bp_dirty{true};
+    bool m_sim_bp_dirty{true};
+
     real m_friction{0.2};
     real m_density{1};
 
@@ -57,6 +75,8 @@ private:
 
     TightPoolID m_sq_index{
         InvalidTightPoolID};  // for scene query broad phase use
+    TightPoolID m_sim_index{
+        InvalidTightPoolID};  // for simulation broad phase use
     RigidActor* m_owner{};
 };
 

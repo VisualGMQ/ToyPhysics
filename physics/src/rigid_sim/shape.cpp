@@ -33,6 +33,7 @@ void Shape::SetLocalTransform(const Transform& transform) {
     m_local_transform = transform;
     if (m_owner) {
         updateByOwnerTransform();
+        m_owner->RefreshBoundingBox();
     } else {
         m_transform = transform;
         rebuildBV();
@@ -55,6 +56,38 @@ const AABB& Shape::GetBoundingBox() const {
     return m_aabb;
 }
 
+const AABB& Shape::GetFatBoundingBox() const {
+    return m_fat_aabb;
+}
+
+void Shape::SetFatAABBMargin(real margin) {
+    m_fat_aabb_margin = margin;
+
+    m_fat_aabb = AABB{};
+    rebuildBV();
+}
+
+real Shape::GetFatAABBMargin() const {
+    return m_fat_aabb_margin;
+}
+
+bool Shape::consumeSceneQueryDirty() {
+    const bool dirty = m_sq_bp_dirty;
+    m_sq_bp_dirty = false;
+    return dirty;
+}
+
+bool Shape::consumeSimulationDirty() {
+    const bool dirty = m_sim_bp_dirty;
+    m_sim_bp_dirty = false;
+    return dirty;
+}
+
+void Shape::clearBroadPhaseDirty() {
+    m_sq_bp_dirty = false;
+    m_sim_bp_dirty = false;
+}
+
 void Shape::SetFriction(real friction) {
     m_friction = friction;
 }
@@ -64,6 +97,10 @@ real Shape::GetFriction() const {
 }
 
 const Geometry* Shape::GetGeometry() const {
+    return m_geometry.GetGeometry();
+}
+
+Geometry* Shape::GetGeometry() {
     return m_geometry.GetGeometry();
 }
 
@@ -92,6 +129,17 @@ void Shape::rebuildBV() {
 
     m_aabb.m_min += m_transform.m_position;
     m_aabb.m_max += m_transform.m_position;
+
+    if (m_aabb.IsInside(m_fat_aabb)) {
+        return;
+    }
+
+    // regenerate fat AABB
+    const Vector3 margin = Vector3::Constant(m_fat_aabb_margin);
+    m_fat_aabb = AABB{m_aabb.m_min - margin, m_aabb.m_max + margin};
+
+    m_sq_bp_dirty = true;
+    m_sim_bp_dirty = true;
 }
 
 void Shape::attachToActor(RigidActor* actor) {

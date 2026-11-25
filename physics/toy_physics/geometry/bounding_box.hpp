@@ -17,6 +17,7 @@ struct BoundingBox {
 
     [[nodiscard]] bool IsIntersect(const BoundingBox&) const;
     [[nodiscard]] BoundingBox Intersect(const BoundingBox&) const;
+    [[nodiscard]] bool IsInside(const BoundingBox&) const;
 
     [[nodiscard]] BoundingBox Merge(const BoundingBox&) const;
     [[nodiscard]] real Area() const;

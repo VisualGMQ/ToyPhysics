@@ -1,27 +1,43 @@
 #include "toy_physics/rigid_sim/solver.hpp"
 
+#include "toy_physics/bp/bp.hpp"
 #include "toy_physics/rigid_sim/manifold.hpp"
 #include "toy_physics/rigid_sim/rigidbody.hpp"
 #include "toy_physics/rigid_sim/shape.hpp"
 
+#include <algorithm>
+#include <functional>
 #include <utility>
 
 namespace toy_physics {
 
 RigidSolver::RigidSolver(const Settings& settings) : m_settings{settings} {}
 
-void RigidSolver::Solve(std::span<RigidActor*> actors, real dt) {
+void RigidSolver::Solve(std::span<RigidActor*> actors, real dt,
+                        const BroadPhase& sim_broad_phase) {
     // Step1: integrate velocities
     integrateVelocities(actors, dt, m_settings.m_use_gyro);
 
     // Step2: detect contact and generate manifolds
     m_contacts.clear();
-    detectContacts(actors, dt);
+    detectContacts(actors, dt, sim_broad_phase);
 
-    // Step3: solve constraints
+    // Step3: restore impulses from last frame and apply them
+    if (m_settings.m_use_warm_start) {
+        warmStartContacts();
+    }
+
+    // Step4: solve constraints
     solveVelocityConstraints();
 
-    // Step4: integrate transform
+    // Step5: store impulses for next frame
+    if (m_settings.m_use_warm_start) {
+        storeImpulses();
+    } else {
+        m_cache.clear();
+    }
+
+    // Step6: integrate transform
     integrateTransforms(actors, dt);
 }
 
@@ -81,36 +97,47 @@ void RigidSolver::integrateVelocities(std::span<RigidActor*> actors, real dt,
     }
 }
 
-void RigidSolver::detectContacts(std::span<RigidActor*> actors, real dt) {
-    for (size_t i = 0; i < actors.size(); i++) {
-        for (size_t j = i + 1; j < actors.size(); j++) {
-            RigidActor* actor1 = actors[i];
-            RigidActor* actor2 = actors[j];
+void RigidSolver::detectContacts(std::span<RigidActor*> actors, real dt,
+                                 const BroadPhase& sim_broad_phase) {
+    for (RigidActor* actor1 : actors) {
+        const std::span<Shape*> shapes1 = actor1->GetShapes();
+        if (shapes1.empty()) {
+            continue;
+        }
+
+        sim_broad_phase.DoFilter(actor1->GetBoundingBox(), [&](Shape* shape2) {
+            RigidActor* actor2 = shape2->GetOwner();
+            if (actor2 == nullptr || actor2 == actor1) {
+                return;
+            }
+
+            if (actor2->GetID() <= actor1->GetID()) {
+                return;
+            }
+
             if (actor1->GetType() == RigidActor::Type::Static &&
                 actor2->GetType() == RigidActor::Type::Static) {
-                continue;
+                return;
             }
 
-            for (Shape* shape1 : actor1->GetShapes()) {
-                for (Shape* shape2 : actor2->GetShapes()) {
-                    if (!shape1->GetBoundingBox().IsIntersect(
-                            shape2->GetBoundingBox())) {
-                        continue;
-                    }
-
-                    Manifold manifold;
-                    if (!ComputeManifold(*shape1, *shape2, &manifold)) {
-                        continue;
-                    }
-
-                    if (manifold.m_contact_num == 0) {
-                        continue;
-                    }
-
-                    convertManifoldToSolverContacts(manifold, dt);
+            for (Shape* shape1 : shapes1) {
+                if (!shape1->GetFatBoundingBox().IsIntersect(
+                        shape2->GetFatBoundingBox())) {
+                    continue;
                 }
+
+                Manifold manifold;
+                if (!ComputeManifold(*shape1, *shape2, &manifold)) {
+                    continue;
+                }
+
+                if (manifold.m_contact_num == 0) {
+                    continue;
+                }
+
+                convertManifoldToSolverContacts(manifold, dt);
             }
-        }
+        });
     }
 }
 
@@ -142,6 +169,9 @@ void RigidSolver::convertManifoldToSolverContacts(const Manifold& manifold,
     Vector3 center_of_mass2 = dyn2 ? dyn2->GetCenterOfMassPosition()
                                    : actor2->GetTransform().m_position;
 
+    const Transform& body_trans1 = actor1->GetTransform();
+    const Transform& body_trans2 = actor2->GetTransform();
+
     for (int i = 0; i < manifold.m_contact_num; i++) {
         SolverContact contact;
         contact.m_body1 = actor1;
@@ -150,6 +180,9 @@ void RigidSolver::convertManifoldToSolverContacts(const Manifold& manifold,
         contact.m_dyn1 = dyn1;
         contact.m_dyn2 = dyn2;
 
+        contact.m_shape1 = manifold.m_shape1;
+        contact.m_shape2 = manifold.m_shape2;
+
         contact.m_friction = friction;
 
         Vector3 point1 = manifold.m_contacts1[i];
@@ -157,6 +190,11 @@ void RigidSolver::convertManifoldToSolverContacts(const Manifold& manifold,
 
         contact.m_r1 = point1 - center_of_mass1;
         contact.m_r2 = point2 - center_of_mass2;
+
+        contact.m_local1 = body_trans1.m_rotation.conjugate() *
+                           (point1 - body_trans1.m_position);
+        contact.m_local2 = body_trans2.m_rotation.conjugate() *
+                           (point2 - body_trans2.m_position);
 
         contact.m_normal = manifold.m_separate_normal.normalized();
         contact.m_depth = std::max<real>(manifold.m_depth[i], 0);
@@ -312,6 +350,134 @@ void RigidSolver::applyContactImpulse(SolverContact& contact,
     if (contact.m_dyn1 != nullptr) {
         contact.m_dyn1->ApplyImpulse(-impulse, contact.m_r1);
     }
+}
+
+int RigidSolver::findMatch(const CachedManifold& cached,
+                           const SolverContact& contact, bool flipped,
+                           std::array<bool, 4>& used) const {
+    constexpr real kMaxDist2 = 0.01 * 0.01;
+    constexpr real kMinNormalDot = 0.9;
+
+    const Vector3 local1 = flipped ? contact.m_local2 : contact.m_local1;
+    const Vector3 local2 = flipped ? contact.m_local1 : contact.m_local2;
+    const Vector3 normal = flipped ? -contact.m_normal : contact.m_normal;
+
+    int best = -1;
+    real best_dist2 = kMaxDist2;
+
+    for (size_t i = 0; i < cached.m_points.size() && i < 4; ++i) {
+        if (used[i]) {
+            continue;
+        }
+
+        const CachedPoint& point = cached.m_points[i];
+
+        if (normal.dot(point.m_normal) < kMinNormalDot) {
+            continue;
+        }
+
+        const real d1 = (local1 - point.m_local1).squaredNorm();
+        const real d2 = (local2 - point.m_local2).squaredNorm();
+        const real d = std::max(d1, d2);
+
+        if (d < best_dist2) {
+            best_dist2 = d;
+            best = static_cast<int>(i);
+        }
+    }
+
+    if (best >= 0) {
+        used[best] = true;
+    }
+
+    return best;
+}
+
+void RigidSolver::warmStartContacts() {
+    std::unordered_map<ShapePair, std::array<bool, 4>> used_points;
+
+    for (SolverContact& contact : m_contacts) {
+        const ShapePair key{contact.m_shape1, contact.m_shape2};
+
+        const auto it = m_cache.find(key);
+        if (it == m_cache.end()) {
+            continue;
+        }
+
+        const CachedManifold& cached = it->second;
+        const bool flipped = cached.m_shape1 != contact.m_shape1;
+
+        auto [used_it, inserted] = used_points.try_emplace(key);
+        auto& used = used_it->second;
+        if (inserted) {
+            used.fill(false);
+        }
+
+        const int match = findMatch(cached, contact, flipped, used);
+        if (match < 0) {
+            continue;
+        }
+
+        const CachedPoint& point = cached.m_points[static_cast<size_t>(match)];
+
+        contact.m_normal_impulse = point.m_normal_impulse;
+        contact.m_tangent_impulses = point.m_tangent_impulses;
+
+        const real max_friction = contact.m_friction * contact.m_normal_impulse;
+
+        for (real& tangent_impulse : contact.m_tangent_impulses) {
+            tangent_impulse =
+                std::clamp(tangent_impulse, -max_friction, max_friction);
+        }
+
+        applyContactImpulse(contact,
+                            contact.m_normal * contact.m_normal_impulse);
+        applyContactImpulse(contact,
+                            contact.m_tangent1 * contact.m_tangent_impulses[0]);
+        applyContactImpulse(contact,
+                            contact.m_tangent2 * contact.m_tangent_impulses[1]);
+    }
+}
+
+void RigidSolver::storeImpulses() {
+    std::unordered_map<ShapePair, CachedManifold> new_manifolds;
+
+    for (SolverContact& contact : m_contacts) {
+        const ShapePair key{contact.m_shape1, contact.m_shape2};
+
+        const auto cache_it = m_cache.find(key);
+        const Shape* cached_shape1 =
+            (cache_it != m_cache.end() && cache_it->second.m_shape1 != nullptr)
+                ? cache_it->second.m_shape1
+                : contact.m_shape1;
+
+        const bool flipped = cached_shape1 != contact.m_shape1;
+
+        const Vector3 local1 = flipped ? contact.m_local2 : contact.m_local1;
+        const Vector3 local2 = flipped ? contact.m_local1 : contact.m_local2;
+        const Vector3 normal = flipped ? -contact.m_normal : contact.m_normal;
+
+        auto [it, inserted] = new_manifolds.try_emplace(key);
+        auto& new_manifold = it->second;
+
+        if (inserted) {
+            new_manifold.m_shape1 = cached_shape1;
+        }
+
+        if (new_manifold.m_points.size() >= 4) {
+            continue;
+        }
+
+        new_manifold.m_points.push_back(CachedPoint{
+            local1,
+            local2,
+            normal,
+            contact.m_normal_impulse,
+            contact.m_tangent_impulses,
+        });
+    }
+
+    m_cache = std::move(new_manifolds);
 }
 
 }  // namespace toy_physics

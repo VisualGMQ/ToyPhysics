@@ -10,6 +10,7 @@
 
 #include "raymath.h"
 
+#include <chrono>
 #include <cmath>
 #include <random>
 #include <vector>
@@ -62,6 +63,11 @@ private:
 
     float m_accumulator{0.f};
     bool m_paused{false};
+    bool m_warm_start{true};
+
+    // 性能观察：平滑后的每帧物理耗时 + 这一帧跑了几个子步
+    float m_physics_ms{0.f};
+    int m_steps_last_frame{0};
 
     int m_layers{7};
     float m_layers_slider{7.f};
@@ -69,22 +75,34 @@ private:
     static constexpr float kFixedDt = 1.f / 60.f;
     static constexpr int kMaxSubSteps = 4;
     static constexpr int kMinLayers = 2;
-    static constexpr int kMaxLayers = 20;
+    static constexpr int kMaxLayers = 100;
+
+    static constexpr float kBoxHalfSize = 0.5f;
+    static constexpr float kSpacingX = 1.03f;
+    static constexpr float kSpacingY = 1.01f;
 };
 
 inline void RigidBoxesExample::BuildScene() {
     toy_physics::World::Settings settings;
     settings.m_gravity = toy_physics::Vector3{0.f, -9.8f, 0.f};
     settings.m_solver_settings.m_iter_num = 20;
+    settings.m_solver_settings.m_use_warm_start = m_warm_start;
 
     m_world = m_foundation.CreateWorld(settings);
 
     // ---- 静态地面 ----
     {
+        // 金字塔底层宽度随层数增长，地面要跟着变大，
+        // 否则最外侧的方块一开始就站在地面外面
+        const float base_half_width =
+            0.5f * static_cast<float>(m_layers - 1) * kSpacingX +
+            kBoxHalfSize;
+        const float ground_half = std::max(12.f, base_half_width + 4.f);
+
         toy_physics::StaticRigidBody* ground = m_foundation.CreateStatic();
-        toy_physics::Shape* shape =
-            m_foundation.CreateShape(toy_physics::BoxGeometry{
-                toy_physics::Vector3{12.f, 0.5f, 12.f}});
+        toy_physics::Shape* shape = m_foundation.CreateShape(
+            toy_physics::BoxGeometry{
+                toy_physics::Vector3{ground_half, 0.5f, ground_half}});
         shape->SetFriction(0.8f);
 
         ground->AttachShape(*shape);
@@ -96,7 +114,7 @@ inline void RigidBoxesExample::BuildScene() {
 
         m_bodies.push_back(Body{
             ground,
-            toy_physics::Vector3{12.f, 0.5f, 12.f},
+            toy_physics::Vector3{ground_half, 0.5f, ground_half},
             ::Color{90, 90, 100, 255},
         });
     }
@@ -109,8 +127,8 @@ inline void RigidBoxesExample::BuildScene() {
 
     auto add_box = [&](toy_physics::Vector3 position,
                        toy_physics::Quaternion rotation) {
-        const float half = 0.5f;
-        const toy_physics::Vector3 half_extent{half, half, half};
+        const toy_physics::Vector3 half_extent{
+            kBoxHalfSize, kBoxHalfSize, kBoxHalfSize};
 
         toy_physics::DynamicRigidBody* body = m_foundation.CreateDynamic();
 
@@ -139,12 +157,13 @@ inline void RigidBoxesExample::BuildScene() {
     const int layers = m_layers;
     for (int layer = 0; layer < layers; ++layer) {
         const int count = layers - layer;
-        const float y = 0.5f + 1.01f * static_cast<float>(layer);
+        const float y =
+            kBoxHalfSize + kSpacingY * static_cast<float>(layer);
 
         for (int k = 0; k < count; ++k) {
             const float x =
                 (static_cast<float>(k) - 0.5f * static_cast<float>(count - 1)) *
-                1.03f;
+                kSpacingX;
 
             const toy_physics::Vector3 axis =
                 toy_physics::Vector3{uniform(rng), uniform(rng), uniform(rng)}
@@ -180,21 +199,36 @@ inline void RigidBoxesExample::ResetScene() {
     DestroyScene();
     BuildScene();
     m_accumulator = 0.f;
+    m_physics_ms = 0.f;
+    m_steps_last_frame = 0;
 }
 
 inline void RigidBoxesExample::OnUpdate(float delta_time) {
     if (m_world == nullptr || m_paused) {
+        m_steps_last_frame = 0;
         return;
     }
 
     m_accumulator += delta_time;
 
     int sub_steps = 0;
+    float physics_ms = 0.f;
+
     while (m_accumulator >= kFixedDt && sub_steps < kMaxSubSteps) {
+        const auto begin = std::chrono::steady_clock::now();
         m_world->Simulate(kFixedDt);
+        const auto end = std::chrono::steady_clock::now();
+
+        physics_ms += std::chrono::duration<double, std::milli>(end - begin)
+                          .count();
         m_accumulator -= kFixedDt;
         ++sub_steps;
     }
+
+    m_steps_last_frame = sub_steps;
+
+    // 指数平滑，避免读数乱跳
+    m_physics_ms = m_physics_ms * 0.8f + physics_ms * 0.2f;
 
     // 累积太多就丢掉，避免掉帧后追帧追到卡死
     if (m_accumulator > kFixedDt * 8.f) {
@@ -223,7 +257,7 @@ inline void RigidBoxesExample::OnRender2D(float delta_time) {
     const float x = static_cast<float>(GetScreenWidth()) - kPanelW - kPanelX;
     float y = 90.f;
 
-    GuiGroupBox({x, y, kPanelW, 250.f}, "Rigid bodies");
+    GuiGroupBox({x, y, kPanelW, 340.f}, "Rigid bodies");
     y += 12.f;
 
     DrawText(TextFormat("Bodies: %d", static_cast<int>(m_bodies.size())),
@@ -239,7 +273,7 @@ inline void RigidBoxesExample::OnRender2D(float delta_time) {
                  static_cast<float>(kMaxLayers));
     y += 32.f;
 
-    // 拖动滑块时，只要取整后的层数变了就立刻重建场景
+    // 拖滑块时重建场景，顺手清掉旧读数
     const int wanted_layers =
         static_cast<int>(std::lround(m_layers_slider));
     if (wanted_layers != m_layers) {
@@ -247,6 +281,28 @@ inline void RigidBoxesExample::OnRender2D(float delta_time) {
         m_layers_slider = static_cast<float>(m_layers);
         ResetScene();
     }
+
+    DrawText(TextFormat("Physics: %.2f ms/frame", m_physics_ms),
+             static_cast<int>(x) + 10, static_cast<int>(y), 18,
+             m_physics_ms > 16.f ? ORANGE : GREEN);
+    y += 22.f;
+
+    DrawText(TextFormat("Frame: %.1f ms  Steps: %d  FPS: %d",
+                        GetFrameTime() * 1000.f, m_steps_last_frame, GetFPS()),
+             static_cast<int>(x) + 10, static_cast<int>(y), 16, GREEN);
+    y += 20.f;
+
+    bool warm_start = m_warm_start;
+    GuiCheckBox({x + 10.f, y, 20.f, 20.f}, "Warm start", &warm_start);
+    if (warm_start != m_warm_start) {
+        m_warm_start = warm_start;
+
+        toy_physics::RigidSolver::Settings solver_settings =
+            m_world->GetSolverSettings();
+        solver_settings.m_use_warm_start = m_warm_start;
+        m_world->ChangeSolverSettings(solver_settings);
+    }
+    y += 30.f;
 
     if (GuiButton({x + 10.f, y, kPanelW - 20.f, 30.f},
                   m_paused ? "Resume" : "Pause")) {
@@ -259,6 +315,12 @@ inline void RigidBoxesExample::OnRender2D(float delta_time) {
     }
     y += 44.f;
 
-    DrawText("Slide to change layers (2-20)", static_cast<int>(x) + 10,
-             static_cast<int>(y), 16, GRAY);
+    if (m_layers >= 40) {
+        DrawText("Large scenes: prefer a Release build",
+                 static_cast<int>(x) + 10, static_cast<int>(y), 16, ORANGE);
+    } else {
+        DrawText(TextFormat("Slide to change layers (%d-%d)", kMinLayers,
+                            kMaxLayers),
+                 static_cast<int>(x) + 10, static_cast<int>(y), 16, GRAY);
+    }
 }
